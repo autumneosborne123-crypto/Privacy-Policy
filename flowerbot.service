@@ -1,0 +1,16 @@
+[Unit]
+Description=FlowerBot Discord Bot
+After=network.target
+
+[Service]
+Type=simple
+User=botuser
+Group=botuser
+WorkingDirectory=/opt/flowerbot
+ExecStart=/opt/flowerbot/.venv/bin/python main.py
+Restart=always
+RestartSec=10
+EnvironmentFile=/opt/flowerbot/.env
+
+[Install]
+WantedBy=multi-user.target

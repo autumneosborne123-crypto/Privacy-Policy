@@ -1,0 +1,14 @@
+static-ffmpeg
+discord.py[voice]
+python-dotenv
+aiohttp
+yt-dlp
+PyNaCl
+aiosqlite
+discord-games
+pinterest-dl
+lyricsgenius
+beautifulsoup4
+syncedlyrics
+aiohttp-jinja2
+jinja2

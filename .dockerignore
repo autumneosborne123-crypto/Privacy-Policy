@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+.git/
+.idea/
+.env
+.junie/
+*.pyc
+*.pyo
+*.pyd
+.db
+*.log
+test_*.py

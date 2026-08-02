@@ -1,0 +1,631 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <!-- Sidebar -->
+        <nav class="col-md-3 col-lg-2 d-md-block sidebar shadow-sm bg-darker">
+            <div class="position-sticky">
+                <div class="px-3 py-4 mb-2 text-center border-bottom border-secondary border-opacity-10">
+                    {% if guild.icon %}
+                    <img src="https://cdn.discordapp.com/icons/{{ guild.id }}/{{ guild.icon }}.png" class="rounded-circle mb-3 shadow-lg border border-2 border-primary border-opacity-25" width="80" height="80">
+                    {% else %}
+                    <div class="rounded-circle bg-primary bg-opacity-25 d-flex align-items-center justify-content-center mx-auto mb-3 shadow-lg" style="width: 80px; height: 80px;">
+                        <span class="h2 mb-0 fw-bold">{{ guild.name[0] }}</span>
+                    </div>
+                    {% endif %}
+                    <h6 class="fw-bold mb-0 text-truncate px-2">{{ guild.name }}</h6>
+                    <small class="text-secondary opacity-50">{{ guild.member_count }} Members</small>
+                </div>
+                <div class="nav flex-column nav-pills p-2" id="v-pills-tab" role="tablist" aria-orientation="vertical">
+                    <button class="nav-link active mb-1" id="v-pills-general-tab" data-bs-toggle="pill" data-bs-target="#v-pills-general" type="button" role="tab"><i class="fas fa-home me-3"></i>Overview</button>
+                    <button class="nav-link mb-1" id="v-pills-modules-tab" data-bs-toggle="pill" data-bs-target="#v-pills-modules" type="button" role="tab"><i class="fas fa-cubes me-3"></i>Modules</button>
+                    
+                    <div class="sidebar-heading text-secondary smaller text-uppercase fw-bold px-3 mt-3 mb-2 opacity-50">Management</div>
+                    <button class="nav-link mb-1" id="v-pills-moderation-tab" data-bs-toggle="pill" data-bs-target="#v-pills-moderation" type="button" role="tab"><i class="fas fa-gavel me-3"></i>Moderation</button>
+                    <button class="nav-link mb-1" id="v-pills-security-tab" data-bs-toggle="pill" data-bs-target="#v-pills-security" type="button" role="tab"><i class="fas fa-shield-alt me-3"></i>Security</button>
+                    <button class="nav-link mb-1" id="v-pills-logging-tab" data-bs-toggle="pill" data-bs-target="#v-pills-logging" type="button" role="tab"><i class="fas fa-clipboard-list me-3"></i>Logging</button>
+                    
+                    <div class="sidebar-heading text-secondary smaller text-uppercase fw-bold px-3 mt-3 mb-2 opacity-50">Automation</div>
+                    <button class="nav-link mb-1" id="v-pills-welcome-tab" data-bs-toggle="pill" data-bs-target="#v-pills-welcome" type="button" role="tab"><i class="fas fa-door-open me-3"></i>Welcome</button>
+                    <button class="nav-link mb-1" id="v-pills-roles-tab" data-bs-toggle="pill" data-bs-target="#v-pills-roles" type="button" role="tab"><i class="fas fa-user-tag me-3"></i>Auto-Roles</button>
+                    
+                    <div class="sidebar-heading text-secondary smaller text-uppercase fw-bold px-3 mt-3 mb-2 opacity-50">Tools</div>
+                    <button class="nav-link mb-1" id="v-pills-media-tab" data-bs-toggle="pill" data-bs-target="#v-pills-media" type="button" role="tab"><i class="fas fa-icons me-3"></i>Media Feeds</button>
+                    <button class="nav-link mb-1" id="v-pills-embeds-tab" data-bs-toggle="pill" data-bs-target="#v-pills-embeds" type="button" role="tab"><i class="fas fa-pen-nib me-3"></i>Embed Builder</button>
+                    <button class="nav-link mb-1" id="v-pills-stats-tab" data-bs-toggle="pill" data-bs-target="#v-pills-stats" type="button" role="tab"><i class="fas fa-chart-bar me-3"></i>Statistics</button>
+                    <button class="nav-link mb-1" id="v-pills-status-tab" data-bs-toggle="pill" data-bs-target="#v-pills-status" type="button" role="tab"><i class="fas fa-server me-3"></i>System Status</button>
+                    
+                    <hr class="mx-3 my-4 opacity-10">
+                    <a href="/dashboard?token={{ token }}" class="nav-link text-secondary"><i class="fas fa-chevron-left me-3"></i>Switch Server</a>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 py-4">
+            {% if request.query.get('success') %}
+            <div class="alert alert-success alert-dismissible fade show shadow-sm" role="alert">
+                <strong>Success!</strong> Your changes have been saved to <strong>{{ branding }}</strong>.
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+            {% endif %}
+
+            <div class="tab-content" id="v-pills-tabContent">
+                <!-- General Settings -->
+                <div class="tab-pane fade show active" id="v-pills-general" role="tabpanel">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h3 class="fw-bold mb-0">Server Overview</h3>
+                        <a href="https://discord.com/channels/{{ guild.id }}" target="_blank" class="btn btn-outline-primary btn-sm rounded-pill px-3 shadow-sm">Open in Discord</a>
+                    </div>
+                    
+                    <div class="row g-4 mb-5">
+                        <div class="col-md-3">
+                            <div class="card p-3 shadow-sm border-0 bg-darker h-100">
+                                <small class="text-secondary text-uppercase ls-1 smaller fw-bold mb-2">Members</small>
+                                <h2 class="fw-bold mb-0">{{ guild.member_count }}</h2>
+                                <div class="mt-2 text-success smaller"><i class="fas fa-arrow-up me-1"></i> +{{ stats[0][2] if stats else 0 }} join today</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card p-3 shadow-sm border-0 bg-darker h-100">
+                                <small class="text-secondary text-uppercase ls-1 smaller fw-bold mb-2">Activity</small>
+                                <h2 class="fw-bold mb-0">{{ stats[0][1] if stats else 0 }}</h2>
+                                <div class="mt-2 text-secondary smaller">Messages today</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card p-3 shadow-sm border-0 bg-darker h-100">
+                                <small class="text-secondary text-uppercase ls-1 smaller fw-bold mb-2">Bot Status</small>
+                                <h2 class="fw-bold mb-0 text-info">{{ latency }}ms</h2>
+                                <div class="mt-2 text-secondary smaller">Uptime: {{ uptime }}</div>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="card p-3 shadow-sm border-0 bg-darker h-100">
+                                <small class="text-secondary text-uppercase ls-1 smaller fw-bold mb-2">Modules</small>
+                                <h2 class="fw-bold mb-0">{{ cogs | length }}</h2>
+                                <div class="mt-2 text-secondary smaller">Features Loaded</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h5 class="fw-bold mb-3"><i class="fas fa-sliders-h me-2 text-primary"></i>Core Configuration</h5>
+                    <form action="/guild/{{ guild.id }}/update?token={{ token }}" method="POST">
+                        <div class="card p-4 mb-4 shadow-sm border-0 bg-darker">
+                            <div class="row g-4">
+                                <div class="col-md-6">
+                                    <label class="form-label fw-bold">Audit Log Channel</label>
+                                    <p class="text-secondary smaller mb-2">Choose where {{ branding }} posts moderation logs.</p>
+                                    <select name="log_channel_id" class="form-select bg-dark border-secondary border-opacity-25">
+                                        <option value="">None</option>
+                                        {% for channel in guild.text_channels %}
+                                        <option value="{{ channel.id }}" {{ 'selected' if settings.log_channel_id == (channel.id | string) }}>#{{ channel.name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label fw-bold">Mute Role</label>
+                                    <p class="text-secondary smaller mb-2">The role given to members when they are muted.</p>
+                                    <select name="mute_role_id" class="form-select bg-dark border-secondary border-opacity-25">
+                                        <option value="">None</option>
+                                        {% for role in guild.roles %}
+                                        {% if role.name != "@everyone" %}
+                                        <option value="{{ role.id }}" {{ 'selected' if settings.mute_role_id == (role.id | string) }}>{{ role.name }}</option>
+                                        {% endif %}
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary px-5 py-2 rounded-pill shadow-lg">Save Configuration</button>
+                    </form>
+                </div>
+
+                <!-- Modules -->
+                <div class="tab-pane fade" id="v-pills-modules" role="tabpanel">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <div>
+                            <h3 class="fw-bold mb-0">Feature Modules</h3>
+                            <p class="text-secondary mb-0">Enable or disable specific features of {{ branding }} for your server.</p>
+                        </div>
+                    </div>
+                    
+                    <form action="/guild/{{ guild.id }}/update_modules?token={{ token }}" method="POST">
+                        <div class="row g-3">
+                            {% for cog in cogs %}
+                            <div class="col-md-6 col-lg-4">
+                                <div class="card p-3 shadow-sm h-100 border-0 bg-darker hover-elevate">
+                                    <div class="d-flex justify-content-between align-items-start mb-2">
+                                        <div class="bg-primary bg-opacity-10 text-primary rounded-3 d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px; flex-shrink: 0;">
+                                            <i class="fas fa-cube"></i>
+                                        </div>
+                                        <div class="form-check form-switch mt-1">
+                                            {% set mod_path = cog.__module__ %}
+                                            <input class="form-check-input" type="checkbox" name="cog_{{ cog.qualified_name }}" {{ 'checked' if mod_path not in (settings.disabled_cogs or '').split(',') }}>
+                                        </div>
+                                    </div>
+                                    <h6 class="fw-bold mb-1">{{ cog.qualified_name }}</h6>
+                                    <p class="text-secondary smaller mb-0">{{ cog.description or 'Customizable feature for your server management needs.' }}</p>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        <div class="mt-4 p-3 bg-darker rounded-3 border border-secondary border-opacity-10">
+                            <button type="submit" class="btn btn-primary px-5 py-2 rounded-pill shadow-lg">Save Active Modules</button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Moderation -->
+                <div class="tab-pane fade" id="v-pills-moderation" role="tabpanel">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <div>
+                            <h3 class="fw-bold mb-0">Moderation Tools</h3>
+                            <p class="text-secondary mb-0">Keep your server safe with automated moderation and filters.</p>
+                        </div>
+                    </div>
+
+                    <form action="/guild/{{ guild.id }}/update_moderation?token={{ token }}" method="POST">
+                        <div class="card border-0 bg-darker shadow-sm mb-4">
+                            <div class="card-header border-bottom border-secondary border-opacity-10 py-3">
+                                <h6 class="mb-0 fw-bold"><i class="fas fa-shield-virus me-2 text-warning"></i>Automated Protection</h6>
+                            </div>
+                            <div class="card-body p-4">
+                                <div class="row g-4">
+                                    <div class="col-md-6">
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <h6 class="mb-0 fw-bold">Anti-Spam</h6>
+                                            <div class="form-check form-switch">
+                                                <input class="form-check-input" type="checkbox" name="anti_spam_enabled" {{ 'checked' if settings.anti_spam_enabled != 0 }}>
+                                            </div>
+                                        </div>
+                                        <p class="text-secondary smaller mb-3">Timeouts users who send too many messages too quickly.</p>
+                                        <div class="input-group input-group-sm">
+                                            <span class="input-group-text bg-dark border-secondary border-opacity-25 text-secondary smaller">Threshold (msgs/5s)</span>
+                                            <input type="number" name="anti_spam_threshold" class="form-control bg-dark border-secondary border-opacity-25" value="{{ settings.anti_spam_threshold or 5 }}">
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="col-md-6">
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <h6 class="mb-0 fw-bold">Mention Spam</h6>
+                                            <div class="form-check form-switch">
+                                                <input class="form-check-input" type="checkbox" name="mention_spam_enabled" checked disabled>
+                                            </div>
+                                        </div>
+                                        <p class="text-secondary smaller mb-3">Prevents users from mass-mentioning roles or members.</p>
+                                        <div class="input-group input-group-sm">
+                                            <span class="input-group-text bg-dark border-secondary border-opacity-25 text-secondary smaller">Max Mentions</span>
+                                            <input type="number" name="mention_spam_threshold" class="form-control bg-dark border-secondary border-opacity-25" value="{{ settings.mention_spam_threshold or 5 }}">
+                                        </div>
+                                    </div>
+                                    
+                                    <hr class="opacity-10 my-2">
+                                    
+                                    <div class="col-md-6">
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <h6 class="mb-0 fw-bold">Anti-Scam</h6>
+                                            <div class="form-check form-switch">
+                                                <input class="form-check-input" type="checkbox" name="anti_scam_enabled" {{ 'checked' if settings.anti_scam_enabled != 0 }}>
+                                            </div>
+                                        </div>
+                                        <p class="text-secondary smaller mb-0">Deletes known malicious links and phishing attempts.</p>
+                                    </div>
+                                    
+                                    <div class="col-md-6">
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <h6 class="mb-0 fw-bold">Slur Filter</h6>
+                                            <div class="form-check form-switch">
+                                                <input class="form-check-input" type="checkbox" name="slur_filter_enabled" {{ 'checked' if settings.slur_filter_enabled != 0 }}>
+                                            </div>
+                                        </div>
+                                        <p class="text-secondary smaller mb-0">Automatically removes messages containing offensive language.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary px-5 py-2 rounded-pill shadow-lg">Save Moderation</button>
+                    </form>
+                </div>
+
+                <!-- Security -->
+                <div class="tab-pane fade" id="v-pills-security" role="tabpanel">
+                    <h3 class="mb-4">Security Settings</h3>
+                    <form action="/guild/{{ guild.id }}/update_security?token={{ token }}" method="POST">
+                        <div class="card p-3 mb-4 shadow-sm">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <div>
+                                    <h6 class="mb-0">Anti-Raid</h6>
+                                    <small class="text-secondary">Automatically enables raid mode on mass joins.</small>
+                                </div>
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" name="anti_raid_enabled" {{ 'checked' if settings.anti_raid_enabled != 0 }}>
+                                </div>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center border-top pt-3">
+                                <div>
+                                    <h6 class="mb-0">Anti-Nuke</h6>
+                                    <small class="text-secondary">Prevents staff members from performing mass deletions/bans.</small>
+                                </div>
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" name="anti_nuke_enabled" {{ 'checked' if settings.anti_nuke_enabled != 0 }}>
+                                </div>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary px-4 shadow-sm">Save Security</button>
+                    </form>
+                </div>
+
+                <!-- Roles -->
+                <div class="tab-pane fade" id="v-pills-roles" role="tabpanel">
+                    <h3 class="mb-4">Role Management</h3>
+                    <form action="/guild/{{ guild.id }}/update_roles?token={{ token }}" method="POST">
+                        <div class="card p-3 mb-4 shadow-sm">
+                            <div class="mb-3">
+                                <label class="form-label">Auto-Role on Join</label>
+                                <select name="auto_role_id" class="form-select">
+                                    <option value="">None</option>
+                                    {% for role in guild.roles %}
+                                    {% if role.name != "@everyone" %}
+                                    <option value="{{ role.id }}" {{ 'selected' if settings.auto_role_id == (role.id | string) }}>{{ role.name }}</option>
+                                    {% endif %}
+                                    {% endfor %}
+                                </select>
+                                <small class="text-secondary">Role automatically assigned to new members.</small>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary px-4 shadow-sm">Save Roles</button>
+                    </form>
+                </div>
+
+                <!-- Logging -->
+                <div class="tab-pane fade" id="v-pills-logging" role="tabpanel">
+                    <h3 class="mb-4">Logging Events</h3>
+                    <form action="/guild/{{ guild.id }}/update_logging?token={{ token }}" method="POST">
+                        <div class="card p-3 mb-4 shadow-sm">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <div>
+                                    <h6 class="mb-0">Message Deletions</h6>
+                                    <small class="text-secondary">Logs when a user deletes their message.</small>
+                                </div>
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" name="log_message_delete" {{ 'checked' if settings.log_message_delete != 0 }}>
+                                </div>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center mb-3 border-top pt-3">
+                                <div>
+                                    <h6 class="mb-0">Message Edits</h6>
+                                    <small class="text-secondary">Logs when a user edits their message.</small>
+                                </div>
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" name="log_message_edit" {{ 'checked' if settings.log_message_edit != 0 }}>
+                                </div>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center mb-3 border-top pt-3">
+                                <div>
+                                    <h6 class="mb-0">Member Join</h6>
+                                    <small class="text-secondary">Logs when a new member joins the server.</small>
+                                </div>
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" name="log_member_join" {{ 'checked' if settings.log_member_join != 0 }}>
+                                </div>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center mb-3 border-top pt-3">
+                                <div>
+                                    <h6 class="mb-0">Member Leave</h6>
+                                    <small class="text-secondary">Logs when a member leaves the server.</small>
+                                </div>
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" name="log_member_leave" {{ 'checked' if settings.log_member_leave != 0 }}>
+                                </div>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center border-top pt-3">
+                                <div>
+                                    <h6 class="mb-0">Voice Activity</h6>
+                                    <small class="text-secondary">Logs when members join, leave, or move voice channels.</small>
+                                </div>
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" name="log_voice_activity" {{ 'checked' if settings.log_voice_activity != 0 }}>
+                                </div>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary px-4 shadow-sm">Save Logging</button>
+                    </form>
+                </div>
+
+                <!-- Media Feeds -->
+                <div class="tab-pane fade" id="v-pills-media" role="tabpanel">
+                    <h3 class="mb-4">Media Feed Management</h3>
+                    <div class="row">
+                        <div class="col-md-4">
+                            <form action="/guild/{{ guild.id }}/add_media?token={{ token }}" method="POST" class="card p-3 shadow-sm mb-4">
+                                <h5 class="mb-3">Add New Feed</h5>
+                                <div class="mb-3">
+                                    <label class="form-label">Category</label>
+                                    <select name="category" class="form-select" required>
+                                        <option value="female-pfp">Female PFP</option>
+                                        <option value="male-pfp">Male PFP</option>
+                                        <option value="female-gif">Female GIF</option>
+                                        <option value="male-gif">Male GIF</option>
+                                        <option value="anime-pfp">Anime PFP</option>
+                                        <option value="manga-pfp">Manga PFP</option>
+                                        <option value="banner">Discord Banner</option>
+                                        <option value="banner-gif">Banner GIF</option>
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label">Channel</label>
+                                    <select name="channel_id" class="form-select" required>
+                                        {% for channel in guild.text_channels %}
+                                        <option value="{{ channel.id }}">#{{ channel.name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <button type="submit" class="btn btn-primary w-100 shadow-sm">Add Feed</button>
+                            </form>
+                        </div>
+                        <div class="col-md-8">
+                            <div class="card p-3 shadow-sm">
+                                <h5 class="mb-3">Active Feeds</h5>
+                                <table class="table table-dark table-hover mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th>ID</th>
+                                            <th>Category</th>
+                                            <th>Channel</th>
+                                            <th>Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for feed in media_feeds %}
+                                        <tr>
+                                            <td><code>{{ feed[0] }}</code></td>
+                                            <td>{{ feed[2] }}</td>
+                                            <td>#{{ guild.get_channel(feed[1] | int).name if guild.get_channel(feed[1] | int) else feed[1] }}</td>
+                                            <td>
+                                                <form action="/guild/{{ guild.id }}/remove_media/{{ feed[0] }}?token={{ token }}" method="POST" style="display:inline;">
+                                                    <button type="submit" class="btn btn-danger btn-sm px-3 shadow-sm"><i class="fas fa-trash"></i></button>
+                                                </form>
+                                            </td>
+                                        </tr>
+                                        {% else %}
+                                        <tr>
+                                            <td colspan="4" class="text-center text-secondary">No active media feeds.</td>
+                                        </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Server Stats -->
+                <div class="tab-pane fade" id="v-pills-stats" role="tabpanel">
+                    <h3 class="mb-4">Server Activity Insights</h3>
+                    <div class="row g-4 mb-4">
+                        <div class="col-md-4">
+                            <div class="card p-3 shadow-sm border-start border-primary border-4">
+                                <h6 class="text-secondary small">Total Messages (7d)</h6>
+                                <h3 class="fw-bold mb-0">{{ stats | sum(attribute=1) }}</h3>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card p-3 shadow-sm border-start border-success border-4">
+                                <h6 class="text-secondary small">Total Joins (7d)</h6>
+                                <h3 class="fw-bold mb-0">{{ stats | sum(attribute=2) }}</h3>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card p-3 shadow-sm border-start border-danger border-4">
+                                <h6 class="text-secondary small">Total Leaves (7d)</h6>
+                                <h3 class="fw-bold mb-0">{{ stats | sum(attribute=3) }}</h3>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card p-3 shadow-sm">
+                        <h5 class="mb-4">Message Activity (Last 7 Days)</h5>
+                        <canvas id="activityChart" height="100"></canvas>
+                    </div>
+                </div>
+
+                <!-- System Status -->
+                <div class="tab-pane fade" id="v-pills-status" role="tabpanel">
+                    <h3 class="mb-4">System Status</h3>
+                    <div class="row g-4">
+                        <div class="col-md-6">
+                            <div class="card p-4 border-0 bg-darker shadow-sm h-100">
+                                <h5 class="fw-bold mb-3"><i class="fas fa-microchip me-2 text-info"></i>Bot Instance</h5>
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span class="text-secondary">Latency</span>
+                                    <span class="badge bg-success">{{ latency }}ms</span>
+                                </div>
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span class="text-secondary">Uptime</span>
+                                    <span class="fw-bold">{{ uptime }}</span>
+                                </div>
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span class="text-secondary">Version</span>
+                                    <span class="badge bg-secondary">v2.4.0-stable</span>
+                                </div>
+                                <div class="d-flex justify-content-between">
+                                    <span class="text-secondary">Status</span>
+                                    <span class="text-success fw-bold"><i class="fas fa-check-circle me-1"></i> Operational</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card p-4 border-0 bg-darker shadow-sm h-100">
+                                <h5 class="fw-bold mb-3"><i class="fas fa-network-wired me-2 text-warning"></i>External Bridge</h5>
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span class="text-secondary">Domain</span>
+                                    <span class="text-info">{{ branding }}</span>
+                                </div>
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span class="text-secondary">SSL Certificate</span>
+                                    <span class="text-danger">None Detected</span>
+                                </div>
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span class="text-secondary">Port 5000</span>
+                                    <span class="text-warning">Proxy Required</span>
+                                </div>
+                                <div class="mt-3">
+                                    <div class="alert alert-info py-2 mb-0 smaller">
+                                        <i class="fas fa-info-circle me-1"></i> Ensure port 5000 is open in your router.
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Welcome/Goodbye -->
+                <div class="tab-pane fade" id="v-pills-welcome" role="tabpanel">
+                    <h3 class="mb-4">Welcome & Goodbye</h3>
+                    <form action="/guild/{{ guild.id }}/update_welcome?token={{ token }}" method="POST">
+                        <div class="card p-3 mb-4 shadow-sm">
+                            <h5>Welcome Messages</h5>
+                            <div class="mb-3">
+                                <label class="form-label">Welcome Channel</label>
+                                <select name="welcome_channel_id" class="form-select">
+                                    <option value="">None</option>
+                                    {% for channel in guild.text_channels %}
+                                    <option value="{{ channel.id }}" {{ 'selected' if settings.welcome_channel_id == (channel.id | string) }}>#{{ channel.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Welcome Message</label>
+                                <textarea name="welcome_message" class="form-control" rows="3">{{ settings.welcome_message or 'Welcome {member} to {guild}!' }}</textarea>
+                                <small class="text-secondary">Placeholders: {member}, {guild}</small>
+                            </div>
+                        </div>
+                        <div class="card p-3 mb-4 shadow-sm">
+                            <h5>Goodbye Messages</h5>
+                            <div class="mb-3">
+                                <label class="form-label">Goodbye Channel</label>
+                                <select name="goodbye_channel_id" class="form-select">
+                                    <option value="">None</option>
+                                    {% for channel in guild.text_channels %}
+                                    <option value="{{ channel.id }}" {{ 'selected' if settings.goodbye_channel_id == (channel.id | string) }}>#{{ channel.name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Goodbye Message</label>
+                                <textarea name="goodbye_message" class="form-control" rows="3">{{ settings.goodbye_message or '{member} has left the server.' }}</textarea>
+                                <small class="text-secondary">Placeholders: {member}, {guild}</small>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary px-4 shadow-sm">Save Messages</button>
+                    </form>
+                </div>
+
+                <!-- Embed Builder -->
+                <div class="tab-pane fade" id="v-pills-embeds" role="tabpanel">
+                    <h3 class="mb-4">Visual Embed Builder</h3>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <form action="/guild/{{ guild.id }}/send_embed?token={{ token }}" method="POST" id="embedForm">
+                                <div class="card p-3 mb-4 shadow-sm">
+                                    <div class="mb-3">
+                                        <label class="form-label">Target Channel</label>
+                                        <select name="channel_id" class="form-select" required>
+                                            {% for channel in guild.text_channels %}
+                                            <option value="{{ channel.id }}">#{{ channel.name }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Title</label>
+                                        <input type="text" name="title" id="embedTitle" class="form-control" placeholder="Embed Title">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Description</label>
+                                        <textarea name="description" id="embedDesc" class="form-control" rows="4" placeholder="Embed Description"></textarea>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Hex Color</label>
+                                        <input type="color" name="color" id="embedColor" class="form-control form-control-color" value="#7289da">
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">Footer</label>
+                                        <input type="text" name="footer" id="embedFooter" class="form-control" placeholder="Embed Footer">
+                                    </div>
+                                </div>
+                                <button type="submit" class="btn btn-success px-4 shadow-sm">Send Embed</button>
+                            </form>
+                        </div>
+                        <div class="col-md-6">
+                            <h5>Live Preview</h5>
+                            <div class="discord-embed-preview shadow" id="embedPreview">
+                                <div class="fw-bold mb-1" id="previewTitle">Embed Title</div>
+                                <div class="small" id="previewDesc">Embed Description goes here...</div>
+                                <div class="text-secondary smaller mt-2" id="previewFooter" style="font-size: 0.75rem;">Embed Footer</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // Activity Chart
+    const ctx = document.getElementById('activityChart').getContext('2d');
+    const statsData = {{ stats | tojson }};
+    const labels = statsData.map(d => d[0]).reverse();
+    const data = statsData.map(d => d[1]).reverse();
+
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Messages',
+                data: data,
+                borderColor: '#5865f2',
+                backgroundColor: 'rgba(88, 101, 242, 0.1)',
+                fill: true,
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#949ba4' } },
+                x: { grid: { display: false }, ticks: { color: '#949ba4' } }
+            },
+            plugins: {
+                legend: { display: false }
+            }
+        }
+    });
+
+    // Live Preview Logic
+    const titleInput = document.getElementById('embedTitle');
+    const descInput = document.getElementById('embedDesc');
+    const colorInput = document.getElementById('embedColor');
+    const footerInput = document.getElementById('embedFooter');
+    
+    const pTitle = document.getElementById('previewTitle');
+    const pDesc = document.getElementById('previewDesc');
+    const pFooter = document.getElementById('previewFooter');
+    const pContainer = document.getElementById('embedPreview');
+
+    function updatePreview() {
+        pTitle.innerText = titleInput.value || 'Embed Title';
+        pDesc.innerText = descInput.value || 'Embed Description goes here...';
+        pFooter.innerText = footerInput.value || 'Embed Footer';
+        pContainer.style.borderLeftColor = colorInput.value;
+    }
+
+    titleInput.addEventListener('input', updatePreview);
+    descInput.addEventListener('input', updatePreview);
+    colorInput.addEventListener('input', updatePreview);
+    footerInput.addEventListener('input', updatePreview);
+</script>
+{% endblock %}

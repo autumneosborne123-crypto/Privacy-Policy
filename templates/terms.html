@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-10 col-lg-8">
+            <h1 class="display-4 fw-bold mb-4">Terms of Service</h1>
+            <p class="text-secondary mb-5">Last updated: August 1, 2026</p>
+
+            <section class="mb-5">
+                <h3 class="fw-bold mb-3">1. Acceptance of Terms</h3>
+                <p>By adding {{ branding }} to your Discord server or using its website, you agree to be bound by these Terms of Service. If you do not agree, please do not use the bot.</p>
+            </section>
+
+            <section class="mb-5">
+                <h3 class="fw-bold mb-3">2. Usage Rules</h3>
+                <p>You agree not to use {{ branding }} for any illegal or unauthorized purpose. Specifically, you agree not to:</p>
+                <ul>
+                    <li>Use the bot to harass, threaten, or abuse others.</li>
+                    <li>Attempt to exploit the bot's economy or leveling systems.</li>
+                    <li>Self-bot or automate interactions with {{ branding }} in a way that violates Discord's own Terms of Service.</li>
+                </ul>
+            </section>
+
+            <section class="mb-5">
+                <h3 class="fw-bold mb-3">3. Disclaimer</h3>
+                <p>{{ branding }} is provided "as is" without any warranties. We are not responsible for any data loss, server disruptions, or damages arising from the use of our services.</p>
+            </section>
+
+            <section class="mb-5">
+                <h3 class="fw-bold mb-3">4. Modifications</h3>
+                <p>We reserve the right to modify these terms at any time. Continued use of the bot after changes constitutes acceptance of the new terms.</p>
+            </section>
+
+            <section class="mb-5">
+                <h3 class="fw-bold mb-3">5. Termination</h3>
+                <p>We reserve the right to terminate your access to the bot or dashboard at our discretion, without notice, for conduct that we believe violates these Terms or is harmful to other users.</p>
+            </section>
+        </div>
+    </div>
+</div>
+{% endblock %}

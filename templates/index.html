@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="hero-section text-center">
+    <div class="container py-5">
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <h1 class="display-2 fw-bold mb-4 mt-5"><i class="fas fa-flower text-info"></i> {{ branding }}</h1>
+                <p class="lead mb-5 text-secondary fs-4">The ultimate Discord bot for music enthusiasts, server security, and social fun. Trusted by thousands of communities worldwide.</p>
+                
+                {% if error %}
+                <div class="alert alert-danger mb-5" role="alert">
+                    {{ error }}
+                </div>
+                {% endif %}
+                
+                <div class="d-grid gap-3 d-sm-flex justify-content-sm-center mb-5">
+                    {% if token %}
+                    <a href="/dashboard?token={{ token }}" class="btn btn-primary btn-lg px-5 py-3 rounded-pill shadow-lg">Open Dashboard</a>
+                    {% else %}
+                    <a href="{{ invite_url }}" class="btn btn-primary btn-lg px-5 py-3 rounded-pill shadow-lg"><i class="fab fa-discord me-2"></i>Add to Discord</a>
+                    <a href="/login" class="btn btn-outline-light btn-lg px-5 py-3 rounded-pill">Manage Server</a>
+                    {% endif %}
+                    <a href="https://discord.gg/flowerbot" class="btn btn-secondary btn-lg px-5 py-3 rounded-pill shadow-lg"><i class="fas fa-life-ring me-2"></i>Support Server</a>
+                </div>
+                
+                <div class="mt-5">
+                    <div class="row g-3 justify-content-center">
+                        <div class="col-auto">
+                            <div class="bg-dark bg-opacity-50 p-3 rounded-4 border border-info border-opacity-25">
+                                <h3 class="fw-bold mb-0">{{ stats.guilds if stats else '500+' }}</h3>
+                                <small class="text-secondary text-uppercase ls-1">Servers</small>
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <div class="bg-dark bg-opacity-50 p-3 rounded-4 border border-success border-opacity-25">
+                                <h3 class="fw-bold mb-0">{{ stats.users if stats else '50k+' }}</h3>
+                                <small class="text-secondary text-uppercase ls-1">Users</small>
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <div class="bg-dark bg-opacity-50 p-3 rounded-4 border border-warning border-opacity-25">
+                                <h3 class="fw-bold mb-0">{{ stats.commands if stats else '100+' }}</h3>
+                                <small class="text-secondary text-uppercase ls-1">Commands</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="bg-darker py-5">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-md-6 mb-4 mb-md-0">
+                <h2 class="fw-bold mb-4">Start managing your server in seconds</h2>
+                <div class="d-flex mb-4">
+                    <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center me-3 shadow" style="width: 48px; height: 48px; flex-shrink: 0;">1</div>
+                    <div>
+                        <h5 class="fw-bold">Login with Discord</h5>
+                        <p class="text-secondary">Securely authenticate with your Discord account. No registration required.</p>
+                    </div>
+                </div>
+                <div class="d-flex mb-4">
+                    <div class="bg-info text-white rounded-circle d-flex align-items-center justify-content-center me-3 shadow" style="width: 48px; height: 48px; flex-shrink: 0;">2</div>
+                    <div>
+                        <h5 class="fw-bold">Select Your Server</h5>
+                        <p class="text-secondary">Choose any server where you have the 'Manage Server' permission.</p>
+                    </div>
+                </div>
+                <div class="d-flex">
+                    <div class="bg-success text-white rounded-circle d-flex align-items-center justify-content-center me-3 shadow" style="width: 48px; height: 48px; flex-shrink: 0;">3</div>
+                    <div>
+                        <h5 class="fw-bold">Configure & Relax</h5>
+                        <p class="text-secondary">Enable modules, set up welcome messages, and let {{ branding }} handle the rest.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6 text-center">
+                <img src="https://img.freepik.com/free-vector/gradient-ui-ux-elements-background_23-2149056159.jpg" class="img-fluid rounded-4 shadow-lg border border-secondary border-opacity-25" alt="Dashboard Preview">
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container py-5" id="features">
+    <div class="text-center mb-5">
+        <h2 class="fw-bold">Everything you need in one bot</h2>
+        <p class="text-secondary">Stop inviting 20 bots. {{ branding }} does it all.</p>
+    </div>
+    
+    <div class="row g-4">
+        <div class="col-md-4">
+            <div class="card h-100 p-4 shadow-sm border-0">
+                <div class="feature-icon bg-info bg-opacity-10 text-info">
+                    <i class="fas fa-music"></i>
+                </div>
+                <h4>High-Quality Music</h4>
+                <p class="text-secondary">Enjoy lag-free music with autoplay, lyrics, and custom playlists. Supports YouTube, Spotify, and Soundcloud.</p>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100 p-4 shadow-sm border-0">
+                <div class="feature-icon bg-warning bg-opacity-10 text-warning">
+                    <i class="fas fa-shield-halved"></i>
+                </div>
+                <h4>Fortified Security</h4>
+                <p class="text-secondary">Advanced Anti-Raid and Anti-Nuke systems protect your server from malicious actors 24/7.</p>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100 p-4 shadow-sm border-0">
+                <div class="feature-icon bg-success bg-opacity-10 text-success">
+                    <i class="fas fa-sliders"></i>
+                </div>
+                <h4>Web Dashboard</h4>
+                <p class="text-secondary">A powerful, easy-to-use web interface to manage settings, commands, and visual embeds without typing a single slash.</p>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100 p-4 shadow-sm border-0">
+                <div class="feature-icon bg-danger bg-opacity-10 text-danger">
+                    <i class="fas fa-coins"></i>
+                </div>
+                <h4>Social Economy</h4>
+                <p class="text-secondary">Keep your members engaged with a full economy system, adventure games, and daily rewards.</p>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100 p-4 shadow-sm border-0">
+                <div class="feature-icon bg-primary bg-opacity-10 text-primary">
+                    <i class="fas fa-chart-line"></i>
+                </div>
+                <h4>Leveling System</h4>
+                <p class="text-secondary">Role rewards, XP boosts, and beautiful rank cards to incentivize activity in your community.</p>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100 p-4 shadow-sm border-0">
+                <div class="feature-icon bg-light bg-opacity-10 text-light">
+                    <i class="fas fa-wand-magic-sparkles"></i>
+                </div>
+                <h4>Embed Builder</h4>
+                <p class="text-secondary">Design professional Discord embeds with our real-time visual builder and broadcast them instantly.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<footer class="py-5 bg-darker border-top mt-5">
+    <div class="container text-center text-secondary">
+        <div class="mb-3">
+            <a href="/privacy" class="text-secondary text-decoration-none me-3">Privacy Policy</a>
+            <a href="/terms" class="text-secondary text-decoration-none me-3">Terms of Service</a>
+            <a href="https://discord.gg/flowerbot" class="text-secondary text-decoration-none">Support</a>
+        </div>
+        <p class="mb-0">&copy; 2026 {{ branding }}. Built for Discord communities.</p>
+    </div>
+</footer>
+{% endblock %}
