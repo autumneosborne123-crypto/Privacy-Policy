@@ -144,7 +144,7 @@ class HelpView(discord.ui.View):
         embed = discord.Embed(title="🌸 flowerbot.gg Help Menu", color=0x2b2d31)
         embed.description = (
             "Welcome to the **flowerbot.gg** help menu! Use the selection menu below to browse commands by category.\n\n"
-            f"**Links:** [flowerbot.gg]({dashboard_url}) | [Privacy](https://github.com/autumneosborne123-crypto/Privacy-Policy/blob/main/PRIVACY_POLICY.md) | [Support](https://discord.gg/flowerbot)\n\n"
+            f"**Links:** [flowerbot.gg]({dashboard_url}) | [Privacy](https://github.com/autumneosborne123-crypto/Privacy-Policy/blob/main/PRIVACY_POLICY.md) | [Terms](https://github.com/autumneosborne123-crypto/Privacy-Policy/blob/main/TERMS_OF_SERVICE.md) | [Support](https://discord.gg/flowerbot)\n\n"
             "💡 *Tip: Use `.help <command>` for specific command details.*"
         )
         embed.set_thumbnail(url=self.bot.user.display_avatar.url if self.bot.user.display_avatar else None)
