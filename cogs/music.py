@@ -171,6 +171,34 @@ class Music(commands.Cog):
         if guild_id not in self.queues: self.queues[guild_id] = []
         return self.queues[guild_id]
 
+    def is_too_similar(self, title1, title2):
+        if not title1 or not title2: return False
+        
+        def clean(t):
+            t = t.lower()
+            # Remove content within parentheses and brackets
+            t = re.sub(r'\(.*?\)', '', t)
+            t = re.sub(r'\[.*?\]', '', t)
+            # Remove non-alphanumeric characters except spaces
+            t = re.sub(r'[^\w\s]', '', t)
+            # Words that often represent different versions of the same song
+            fluff = {'official', 'video', 'music', 'lyrics', 'audio', 'hd', '4k', 'live', 'full', 'version', 'hq', 'extended', 'remix', 'cover', 'acoustic', 'instrumental'}
+            words = [w for w in t.split() if w not in fluff]
+            return set(words)
+            
+        s1 = clean(title1)
+        s2 = clean(title2)
+        
+        if not s1 or not s2: return False
+        
+        # Calculate Jaccard similarity / overlap ratio
+        common = s1.intersection(s2)
+        largest = max(len(s1), len(s2))
+        ratio = len(common) / largest if largest > 0 else 0
+        
+        # If they share 70% or more of core words, they are likely the same song or a version of it
+        return ratio >= 0.7
+
     async def get_autoplay_song(self, last_track, guild_id):
         try:
             video_id = last_track.get('id')
@@ -186,15 +214,26 @@ class Music(commands.Cog):
                 
                 data = await self.bot.loop.run_in_executor(None, extract_radio)
                 if 'entries' in data and data['entries']:
-                    # Filter out current and history
+                    # Filter out current, history, and similar titles
                     history = self.autoplay_history.get(guild_id, [])
-                    filtered = [e for e in data['entries'] if e.get('id') != video_id and e.get('id') not in history]
+                    last_title = last_track.get('title', '')
+                    
+                    filtered = []
+                    for e in data['entries']:
+                        if not e or not e.get('id'): continue
+                        if e.get('id') == video_id or e.get('id') in history: continue
+                        if self.is_too_similar(e.get('title', ''), last_title): continue
+                        filtered.append(e)
+                    
                     if not filtered:
-                        filtered = [e for e in data['entries'] if e.get('id') != video_id]
+                        # Fallback: if everything was filtered out, just exclude exact ID and history
+                        filtered = [e for e in data['entries'] if e.get('id') != video_id and e.get('id') not in history]
                     
                     if filtered:
-                        # Pick from the top 20 for variety but still relevance
-                        return random.choice(filtered[:20])
+                        # Skip the first few entries as they are usually the most similar or redundant
+                        # Pick from a slightly larger pool (up to 30) for better diversity
+                        start_idx = min(3, len(filtered) - 1)
+                        return random.choice(filtered[start_idx:30])
 
             # Fallback to search if no ID or no radio entries
             search_query = f"ytsearch10:{last_track['title']} similar music"
@@ -204,9 +243,17 @@ class Music(commands.Cog):
             data = await self.bot.loop.run_in_executor(None, extract_search)
             if 'entries' in data and data['entries']:
                 history = self.autoplay_history.get(guild_id, [])
-                filtered = [e for e in data['entries'] if e.get('id') != last_track.get('id') and e.get('id') not in history]
+                last_title = last_track.get('title', '')
+                
+                filtered = []
+                for e in data['entries']:
+                    if not e or not e.get('id'): continue
+                    if e.get('id') == last_track.get('id') or e.get('id') in history: continue
+                    if self.is_too_similar(e.get('title', ''), last_title): continue
+                    filtered.append(e)
+                
                 if filtered:
-                    return random.choice(filtered[:5])
+                    return random.choice(filtered[:10])
                 return random.choice(data['entries'][:5])
         except Exception as e:
             logging.error(f"Autoplay search error: {e}")
