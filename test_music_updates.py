@@ -138,7 +138,7 @@ class TestMusicUpdates(unittest.IsolatedAsyncioTestCase):
             
             mock_ctx.send.assert_called_once()
             embed = mock_ctx.send.call_args[1]['embed']
-            self.assertEqual(embed.title, "📜 Lyrics: Song Title")
+            self.assertEqual(embed.title, "Song Title")
             self.assertIn("These are the lyrics", embed.description)
 
 if __name__ == '__main__':

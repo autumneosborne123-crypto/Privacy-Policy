@@ -464,15 +464,15 @@ class Music(commands.Cog):
                     for i in range(start, end):
                         ts, text = parsed_lyrics[i]
                         if i == current_index:
-                            lines_to_show.append(f"▶️ **{text}**")
+                            lines_to_show.append(f"**➥ {text}**")
                         else:
-                            lines_to_show.append(f"░ {text}")
+                            lines_to_show.append(f"　 {text}")
                     
                     if not lines_to_show and current_index == -1:
                         lines_to_show = ["⌛ *Song starting...*"]
 
                     embed = discord.Embed(
-                        title=f"🎤 Karaoke: {current_track['title']}", 
+                        title=f"🎵 Lyrics: {current_track['title']}", 
                         description="\n".join(lines_to_show), 
                         color=0x2b2d31
                     )
@@ -701,8 +701,8 @@ class Music(commands.Cog):
             if len(lyrics) > 4000:
                 lyrics = lyrics[:3997] + "..."
             
-            embed = discord.Embed(title=f"📜 Lyrics: {song.title}", description=lyrics, color=0x2b2d31)
-            embed.set_author(name=song.artist)
+            embed = discord.Embed(title=song.title, description=lyrics, color=0x2b2d31)
+            embed.set_author(name=f"Lyrics by {song.artist}", icon_url=song.song_art_image_url if song.song_art_image_url else None)
             if song.song_art_image_url:
                 embed.set_thumbnail(url=song.song_art_image_url)
             
