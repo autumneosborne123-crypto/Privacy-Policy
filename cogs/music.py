@@ -261,7 +261,12 @@ class Music(commands.Cog):
             
             # Autolyrics check
             autolyrics = await self.bot.db.get_guild_setting(guild_id, "autolyrics", int)
-            if autolyrics and guild_id not in self.lyrics_tasks:
+            if autolyrics:
+                # Cancel existing task if any
+                if guild_id in self.lyrics_tasks:
+                    self.lyrics_tasks[guild_id].cancel()
+                    del self.lyrics_tasks[guild_id]
+                
                 # Use a small delay to ensure audio has actually buffered and started
                 self.bot.loop.call_later(2, lambda: self.bot.loop.create_task(self.lyrics.callback(self, ctx)))
         except Exception as e:
@@ -777,7 +782,12 @@ class Music(commands.Cog):
 
     @music.command(name="lyrics", description="Show lyrics for the current song (karaoke style)")
     async def lyrics(self, ctx, song_name: str = None, offset: float = 0.0):
-        await ctx.defer()
+        # Handle interaction deferring safely
+        if ctx.interaction:
+            try:
+                await ctx.defer()
+            except:
+                pass
         
         guild_id = ctx.guild.id
         self.lyrics_offsets[guild_id] = offset

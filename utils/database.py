@@ -34,6 +34,9 @@ class Database:
             await db.execute('''CREATE TABLE IF NOT EXISTS user_daily_activity
                              (user_id TEXT, guild_id TEXT, date DATE, messages INTEGER DEFAULT 0, voice_minutes INTEGER DEFAULT 0, PRIMARY KEY (user_id, guild_id, date))''')
             
+            await db.execute('''CREATE TABLE IF NOT EXISTS afk
+                             (user_id TEXT PRIMARY KEY, reason TEXT, timestamp REAL)''')
+            
             # New tables for Economy and Adventure
             await db.execute('''CREATE TABLE IF NOT EXISTS economy
                              (user_id TEXT PRIMARY KEY, flower_coins INTEGER DEFAULT 500, last_daily REAL DEFAULT 0, last_rob REAL DEFAULT 0, premium_until REAL DEFAULT 0)''')
@@ -626,6 +629,22 @@ class Database:
             await db.commit()
             return True
 
+
+    # --- AFK Methods ---
+    async def set_afk(self, user_id, reason, timestamp):
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute("INSERT OR REPLACE INTO afk (user_id, reason, timestamp) VALUES (?, ?, ?)", (str(user_id), reason, timestamp))
+            await db.commit()
+
+    async def get_afk(self, user_id):
+        async with aiosqlite.connect(self.db_path) as db:
+            async with db.execute("SELECT reason, timestamp FROM afk WHERE user_id = ?", (str(user_id),)) as cursor:
+                return await cursor.fetchone()
+
+    async def remove_afk(self, user_id):
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute("DELETE FROM afk WHERE user_id = ?", (str(user_id),))
+            await db.commit()
 
     # --- Playlist Methods ---
     async def get_playlists(self, user_id):

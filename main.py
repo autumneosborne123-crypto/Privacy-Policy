@@ -192,7 +192,7 @@ class FlowerBot(commands.Bot):
         await self.db.init()
         
         # Load Cogs
-        cogs = ['cogs.leveling', 'cogs.music', 'cogs.security', 'cogs.fun', 'cogs.moderation', 'cogs.config', 'cogs.system', 'cogs.games', 'cogs.media', 'cogs.economy', 'cogs.adventure', 'cogs.achievements', 'cogs.logging', 'cogs.roles', 'cogs.tools', 'cogs.premium']
+        cogs = ['cogs.leveling', 'cogs.music', 'cogs.security', 'cogs.fun', 'cogs.moderation', 'cogs.config', 'cogs.system', 'cogs.games', 'cogs.media', 'cogs.economy', 'cogs.adventure', 'cogs.achievements', 'cogs.logging', 'cogs.roles', 'cogs.tools', 'cogs.premium', 'cogs.afk']
         for cog in cogs:
             try:
                 await self.load_extension(cog)
