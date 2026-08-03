@@ -119,7 +119,7 @@ class TestPremiumFeatures(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.music_cog.active_filters.get(123), "bassboost")
 
     async def test_ytdl_source_filter_applied(self):
-        data = {'url': 'http://example.com/stream.mp3', 'title': 'Test Song'}
+        data = {'url': 'http://example.com/stream.mp3', 'title': 'Test Song', 'formats': []}
         mock_source = MagicMock(spec=discord.AudioSource)
         mock_source.is_opus.return_value = False
         

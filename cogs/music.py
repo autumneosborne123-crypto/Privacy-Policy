@@ -73,14 +73,18 @@ class YTDLSource(discord.PCMVolumeTransformer):
         if audio_filter == 'nightcore': tempo = 1.25
         elif audio_filter == 'vaporwave': tempo = 0.8
         
-        if data is None:
-            # Determine if it's a direct URL or search query
-            if not url.startswith(('http://', 'https://')):
-                url = f"ytsearch:{url}"
+        # Re-extract if data is missing or incomplete (e.g., from flat extraction)
+        if data is None or 'formats' not in data:
+            target_url = url or (data.get('url') if data else None) or (data.get('webpage_url') if data else None)
+            if not target_url:
+                raise ValueError("No URL or data provided for extraction")
+
+            if not target_url.startswith(('http://', 'https://')):
+                target_url = f"ytsearch:{target_url}"
                 
             def extract():
                 with yt_dlp.YoutubeDL(YTDL_OPTIONS) as ydl:
-                    info = ydl.extract_info(url, download=not stream)
+                    info = ydl.extract_info(target_url, download=not stream)
                     if 'entries' in info:
                         info = info['entries'][0]
                     return info
@@ -236,14 +240,16 @@ class Music(commands.Cog):
 
         try:
             audio_filter = self.active_filters.get(guild_id)
-            # Use data directly if it has the stream URL, otherwise re-extract (rare now)
-            if 'url' in data:
-                player = await YTDLSource.from_url(None, data=data, stream=True, audio_filter=audio_filter)
-            else:
-                player = await YTDLSource.from_url(data['webpage_url'], stream=True, audio_filter=audio_filter)
+            player = await YTDLSource.from_url(None, data=data, stream=True, audio_filter=audio_filter)
                 
             player.volume = self.volumes.get(guild_id, 0.5)
-            ctx.voice_client.play(player, after=lambda e: self.bot.loop.call_soon_threadsafe(self.bot.loop.create_task, self.play_next_with_delay(ctx)))
+            
+            def after_playing(error):
+                if error:
+                    logging.error(f"Playback error in {ctx.guild.name}: {error}")
+                self.bot.loop.call_soon_threadsafe(self.bot.loop.create_task, self.play_next_with_delay(ctx))
+                
+            ctx.voice_client.play(player, after=after_playing)
             self.start_times[guild_id] = time.time()
             self.total_paused_durations[guild_id] = 0
             await ctx.send(f"🎶 **Now playing:** {data['title']}")
