@@ -53,12 +53,13 @@ class TestLyricsEdgeCases(unittest.IsolatedAsyncioTestCase):
         mock_synced.return_value = "[00:01.00] Line 1\n[00:02.00] Line 2"
         
         with patch.object(self.music_cog, 'show_synced_lyrics', AsyncMock()) as mock_show:
-            await self.music_cog.lyrics.callback(self.music_cog, ctx, song_name="Test Song")
+            await self.music_cog.lyrics.callback(self.music_cog, ctx, song_name="Test Song", offset=0.0)
             
             mock_show.assert_called_once()
             args, kwargs = mock_show.call_args
             self.assertEqual(kwargs['follow'], False)
             self.assertEqual(args[1], [(1.0, "Line 1"), (2.0, "Line 2")])
+            ctx.send.assert_any_call("🎤 **Synced lyrics found!** Starting karaoke display...", delete_after=5)
 
     @patch('syncedlyrics.search', return_value=None)
     @patch('lyricsgenius.Genius.search_song')
@@ -66,7 +67,7 @@ class TestLyricsEdgeCases(unittest.IsolatedAsyncioTestCase):
         ctx = self.mock_context()
         mock_genius_search.return_value = None
         
-        await self.music_cog.lyrics.callback(self.music_cog, ctx, song_name="Nonexistent Song")
+        await self.music_cog.lyrics.callback(self.music_cog, ctx, song_name="Nonexistent Song", offset=0.0)
         
         ctx.send.assert_called_with("❌ Could not find lyrics for **Nonexistent Song**.")
 
@@ -78,7 +79,7 @@ class TestLyricsEdgeCases(unittest.IsolatedAsyncioTestCase):
         # We need to make it fail early or mock the rest to avoid starting a new task properly
         with patch.object(self.music_cog, '_fetch_synced_lyrics', AsyncMock(return_value=None)):
             with patch.object(self.music_cog.genius, 'search_song', return_value=None):
-                await self.music_cog.lyrics.callback(self.music_cog, ctx, song_name="Test")
+                await self.music_cog.lyrics.callback(self.music_cog, ctx, song_name="Test", offset=0.0)
                 
         mock_task.cancel.assert_called_once()
         self.assertNotIn(self.guild_id, self.music_cog.lyrics_tasks)
@@ -94,9 +95,10 @@ class TestLyricsEdgeCases(unittest.IsolatedAsyncioTestCase):
         mock_song.song_art_image_url = None
         mock_genius_search.return_value = mock_song
         
-        await self.music_cog.lyrics.callback(self.music_cog, ctx, song_name="Long Song")
+        await self.music_cog.lyrics.callback(self.music_cog, ctx, song_name="Long Song", offset=0.0)
         
-        ctx.send.assert_called_once()
+        # Once for fallback message, once for embed
+        self.assertEqual(ctx.send.call_count, 2)
         embed = ctx.send.call_args[1]['embed']
         self.assertTrue(embed.description.endswith("..."))
         self.assertEqual(len(embed.description), 4000)
@@ -136,7 +138,7 @@ class TestLyricsEdgeCases(unittest.IsolatedAsyncioTestCase):
             with patch.object(self.music_cog, 'get_elapsed', side_effect=track_changer):
                 await self.music_cog.show_synced_lyrics(ctx, lyrics1, follow=True)
                 
-            mock_fetch.assert_called_with('Song 2')
+            mock_fetch.assert_called_with('Song 2', None)
             ctx.channel.send.assert_any_call("⏭️ **Lyrics following track change:** Song 2", delete_after=5)
 
     @patch('asyncio.sleep', AsyncMock())

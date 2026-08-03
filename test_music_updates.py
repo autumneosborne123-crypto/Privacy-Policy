@@ -133,13 +133,15 @@ class TestMusicUpdates(unittest.IsolatedAsyncioTestCase):
         mock_song.lyrics = "These are the lyrics\n1Embed"
         mock_song.song_art_image_url = "http://art.com"
         
-        with patch.object(self.bot.loop, 'run_in_executor', AsyncMock(return_value=mock_song)):
-            await self.music_cog.lyrics.callback(self.music_cog, mock_ctx)
-            
-            mock_ctx.send.assert_called_once()
-            embed = mock_ctx.send.call_args[1]['embed']
-            self.assertEqual(embed.title, "Song Title")
-            self.assertIn("These are the lyrics", embed.description)
+        with patch.object(self.music_cog, '_fetch_synced_lyrics', AsyncMock(return_value=None)):
+            with patch.object(self.bot.loop, 'run_in_executor', AsyncMock(return_value=mock_song)):
+                await self.music_cog.lyrics.callback(self.music_cog, mock_ctx, song_name=None, offset=0.0)
+                
+                # Called once for "synced lyrics not found" and once for embed
+                self.assertEqual(mock_ctx.send.call_count, 2)
+                embed = mock_ctx.send.call_args[1]['embed']
+                self.assertEqual(embed.title, "Song Title")
+                self.assertIn("These are the lyrics", embed.description)
 
 if __name__ == '__main__':
     unittest.main()

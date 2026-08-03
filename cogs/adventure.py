@@ -194,7 +194,7 @@ class Adventure(commands.Cog):
             winner = target_member or "Wild Animal"
             await ctx.send(f"💀 **{a_nick}** fainted! **{d_nick}** wins!")
             await self.db.update_animal(attacker[0], {"hp": 0})
-        else:
+        elif d_hp <= 0:
             winner = ctx.author
             await ctx.send(f"🏆 **{d_nick}** fainted! **{a_nick}** wins!")
             if defender[0] != 0: # If not wild
@@ -230,6 +230,11 @@ class Adventure(commands.Cog):
                     self.bot.dispatch("quest_completion", ctx.author.id)
             
             await self.db.update_animal(attacker[0], {"hp": max(0, a_hp), "xp": new_xp, "level": new_lvl})
+        else:
+            await ctx.send("⌛ **Draw!** The battle lasted too long and both animals retreated.")
+            await self.db.update_animal(attacker[0], {"hp": max(0, a_hp)})
+            if defender[0] != 0:
+                await self.db.update_animal(defender[0], {"hp": max(0, d_hp)})
 
     @commands.hybrid_command(name="heal", description="Heal your animal using medicine")
     @app_commands.autocomplete(animal=animal_autocomplete)
@@ -428,6 +433,7 @@ class Adventure(commands.Cog):
         await ctx.send(embed=embed)
 
     @commands.hybrid_command(name="raid", description="Start a cooperative raid against a boss animal")
+    @commands.bot_has_permissions(add_reactions=True, read_message_history=True)
     async def raid(self, ctx):
         boss_id = "elder_dragon"
         boss_data = {"name": "Elder Dragon Boss", "hp": 1000, "attack": 40, "defense": 30}

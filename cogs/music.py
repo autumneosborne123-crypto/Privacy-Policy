@@ -36,23 +36,24 @@ YTDL_OPTIONS = {
 }
 FFMPEG_OPTIONS = {
     'options': '-vn',
-    'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -probesize 32k -analyzeduration 500000'
+    'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -probesize 1M -analyzeduration 1M'
 }
 
 FILTERS = {
     'bassboost': 'bass=g=20,dynaudnorm=f=200',
-    'nightcore': 'asetrate=48000*1.25,aresample=48000,atempo=1.25',
-    'vaporwave': 'asetrate=48000*0.8,aresample=48000,atempo=0.8',
+    'nightcore': 'asetrate=48000*1.25,aresample=48000',
+    'vaporwave': 'asetrate=48000*0.8,aresample=48000',
     '8d': 'apulsator=hz=0.125',
 }
 
 class YTDLSource(discord.PCMVolumeTransformer):
-    def __init__(self, source, *, data, volume=0.5):
+    def __init__(self, source, *, data, volume=0.5, tempo=1.0):
         super().__init__(source, volume)
         self.data = data
         self.title = data.get('title')
         self.url = data.get('url')
         self._read_count = 0
+        self.tempo = tempo
 
     def read(self):
         data = super().read()
@@ -62,11 +63,15 @@ class YTDLSource(discord.PCMVolumeTransformer):
 
     @property
     def elapsed(self):
-        return self._read_count * 0.02
+        return (self._read_count * 0.02) * self.tempo
 
     @classmethod
     async def from_url(cls, url, *, data=None, loop=None, stream=False, audio_filter=None):
         loop = loop or asyncio.get_event_loop()
+        
+        tempo = 1.0
+        if audio_filter == 'nightcore': tempo = 1.25
+        elif audio_filter == 'vaporwave': tempo = 0.8
         
         if data is None:
             # Determine if it's a direct URL or search query
@@ -93,7 +98,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
         if audio_filter and audio_filter in FILTERS:
             options += f' -af "{FILTERS[audio_filter]}"'
             
-        return cls(discord.FFmpegPCMAudio(filename, before_options=FFMPEG_OPTIONS['before_options'], options=options), data=data)
+        return cls(discord.FFmpegPCMAudio(filename, before_options=FFMPEG_OPTIONS['before_options'], options=options), data=data, tempo=tempo)
 
 class Music(commands.Cog):
     def __init__(self, bot):
@@ -107,7 +112,10 @@ class Music(commands.Cog):
         self.total_paused_durations = {}
         self.autoplays = {}
         self.lyrics_tasks = {}
+        self.lyrics_offsets = {}
+        self.default_lyrics_offset = -0.5 # 500ms default latency compensation
         self.active_filters = {}
+        self.autoplay_history = {}
         self.genius = lyricsgenius.Genius(os.getenv('GENIUS_TOKEN', "Your_Genius_API_Token_Here"))
         self.genius.verbose = False
         self.genius.remove_section_headers = True
@@ -154,17 +162,40 @@ class Music(commands.Cog):
         if guild_id not in self.queues: self.queues[guild_id] = []
         return self.queues[guild_id]
 
-    async def get_autoplay_song(self, last_track):
+    async def get_autoplay_song(self, last_track, guild_id):
         try:
-            # Better search query for recommendations
-            search_query = f"ytsearch10:{last_track['title']} {last_track.get('uploader', '')} similar songs"
-            def extract():
+            video_id = last_track.get('id')
+            if video_id:
+                # Try the Radio playlist method for better recommendations
+                radio_url = f"https://www.youtube.com/watch?v={video_id}&list=RD{video_id}"
+                def extract_radio():
+                    # We want to extract just the entries without downloading/processing too much
+                    ydl_opts = YTDL_OPTIONS.copy()
+                    ydl_opts.update({'noplaylist': False, 'extract_flat': True})
+                    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                        return ydl.extract_info(radio_url, download=False)
+                
+                data = await self.bot.loop.run_in_executor(None, extract_radio)
+                if 'entries' in data and data['entries']:
+                    # Filter out current and history
+                    history = self.autoplay_history.get(guild_id, [])
+                    filtered = [e for e in data['entries'] if e.get('id') != video_id and e.get('id') not in history]
+                    if not filtered:
+                        filtered = [e for e in data['entries'] if e.get('id') != video_id]
+                    
+                    if filtered:
+                        # Pick from the top 20 for variety but still relevance
+                        return random.choice(filtered[:20])
+
+            # Fallback to search if no ID or no radio entries
+            search_query = f"ytsearch10:{last_track['title']} similar music"
+            def extract_search():
                 with yt_dlp.YoutubeDL(YTDL_OPTIONS) as ydl:
                     return ydl.extract_info(search_query, download=False)
-            data = await self.bot.loop.run_in_executor(None, extract)
+            data = await self.bot.loop.run_in_executor(None, extract_search)
             if 'entries' in data and data['entries']:
-                # Filter out the same song
-                filtered = [e for e in data['entries'] if e.get('id') != last_track.get('id')]
+                history = self.autoplay_history.get(guild_id, [])
+                filtered = [e for e in data['entries'] if e.get('id') != last_track.get('id') and e.get('id') not in history]
                 if filtered:
                     return random.choice(filtered[:5])
                 return random.choice(data['entries'][:5])
@@ -186,9 +217,15 @@ class Music(commands.Cog):
             self.current_tracks[guild_id] = data
         elif self.autoplays.get(guild_id) and self.current_tracks.get(guild_id):
             last_track = self.current_tracks.get(guild_id)
-            data = await self.get_autoplay_song(last_track)
+            data = await self.get_autoplay_song(last_track, guild_id)
             if data:
                 self.current_tracks[guild_id] = data
+                # Add to history
+                if guild_id not in self.autoplay_history: self.autoplay_history[guild_id] = []
+                if data.get('id'):
+                    self.autoplay_history[guild_id].append(data.get('id'))
+                    if len(self.autoplay_history[guild_id]) > 20: self.autoplay_history[guild_id].pop(0)
+                    
                 await ctx.send(f"📻 **Autoplay:** Now playing **{data['title']}**")
             else:
                 self.current_tracks[guild_id] = None
@@ -385,27 +422,55 @@ class Music(commands.Cog):
 
     def parse_lrc(self, lrc_content):
         lines = []
-        pattern = re.compile(r'\[(\d+):(\d+(?:[.:]\d+)?)\](.*)')
+        offset = 0
+        
+        # Check for offset tag: [offset:500] (in ms)
+        offset_match = re.search(r'\[offset:\s*(-?\d+)\]', lrc_content)
+        if offset_match:
+            try:
+                offset = int(offset_match.group(1)) / 1000.0
+            except:
+                pass
+            
+        # Pattern for [mm:ss.xx] or [mm:ss:xx] or [mm:ss]
+        pattern = re.compile(r'\[(\d+):(\d+(?:[.:]\d+)?)\]')
+        
         for line in lrc_content.split('\n'):
-            match = pattern.search(line)
-            if match:
-                minutes = int(match.group(1))
-                seconds_str = match.group(2).replace(':', '.')
-                seconds = float(seconds_str)
-                text = match.group(3).strip()
-                if text or lines:
-                    lines.append((minutes * 60 + seconds, text))
+            matches = list(pattern.finditer(line))
+            if not matches:
+                continue
+            
+            # The text is everything after the last timestamp
+            text = line[matches[-1].end():].strip()
+            
+            for m in matches:
+                minutes = int(m.group(1))
+                seconds_str = m.group(2).replace(':', '.')
+                try:
+                    seconds = float(seconds_str)
+                    ts = minutes * 60 + seconds + offset
+                    if text or lines:
+                        lines.append((ts, text))
+                except ValueError:
+                    continue
         return sorted(lines, key=lambda x: x[0])
 
-    async def _fetch_synced_lyrics(self, song_name):
+    async def _fetch_synced_lyrics(self, song_name, artist=None):
+        # Clean query
         search_query = re.sub(r'\(.*?\)|\[.*?\]', '', song_name)
-        search_query = re.sub(r'Official Video|Music Video|Lyric Video|Lyrics', '', search_query, flags=re.I).strip()
+        search_query = re.sub(r'Official Video|Music Video|Lyric Video|Lyrics|Audio', '', search_query, flags=re.I).strip()
+        
+        if artist:
+            full_query = f"{artist} - {search_query}"
+        else:
+            full_query = search_query
+            
         try:
-            lrc_content = await self.bot.loop.run_in_executor(None, lambda: syncedlyrics.search(search_query))
+            lrc_content = await self.bot.loop.run_in_executor(None, lambda: syncedlyrics.search(full_query))
             if lrc_content:
                 return self.parse_lrc(lrc_content)
         except Exception as e:
-            logging.error(f"Error fetching synced lyrics for {song_name}: {e}")
+            logging.error(f"Error fetching synced lyrics for {full_query}: {e}")
         return None
 
     async def show_synced_lyrics(self, ctx, parsed_lyrics, follow=True):
@@ -413,6 +478,7 @@ class Music(commands.Cog):
         initial_track = self.current_tracks.get(guild_id)
         message = None
         last_index = -2 # Force update on first run
+        last_edit_time = 0
         
         try:
             while True:
@@ -426,7 +492,7 @@ class Music(commands.Cog):
                     if follow and current_track:
                         initial_track = current_track
                         await ctx.channel.send(f"⏭️ **Lyrics following track change:** {current_track['title']}", delete_after=5)
-                        parsed_lyrics = await self._fetch_synced_lyrics(current_track['title'])
+                        parsed_lyrics = await self._fetch_synced_lyrics(current_track['title'], current_track.get('uploader'))
                         if not parsed_lyrics:
                             embed = discord.Embed(title=f"🎤 Karaoke: {current_track['title']}", description="❌ No synced lyrics found for this track.", color=0x2b2d31)
                             if message: await message.edit(embed=embed)
@@ -446,6 +512,8 @@ class Music(commands.Cog):
                     continue
 
                 elapsed = self.get_elapsed(guild_id, ctx.voice_client)
+                # Add manual offset + default compensation
+                elapsed += self.lyrics_offsets.get(guild_id, 0.0) + self.default_lyrics_offset
                 
                 current_index = -1
                 for i, (ts, text) in enumerate(parsed_lyrics):
@@ -454,8 +522,10 @@ class Music(commands.Cog):
                     else:
                         break
                 
-                if current_index != last_index:
+                # Update if line changed OR every 3 seconds to keep progress bar moving
+                if current_index != last_index or (time.time() - last_edit_time > 3):
                     last_index = current_index
+                    last_edit_time = time.time()
                     
                     lines_to_show = []
                     start = max(0, current_index - 2)
@@ -494,7 +564,7 @@ class Music(commands.Cog):
                         except discord.HTTPException:
                             pass # Rate limited or other issue
                 
-                await asyncio.sleep(1)
+                await asyncio.sleep(0.8) # Slightly faster refresh for better sync
         except asyncio.CancelledError:
             pass
         except Exception as e:
@@ -661,32 +731,38 @@ class Music(commands.Cog):
         await ctx.send(f"📻 Autoplay is now **{'enabled' if self.autoplays[guild_id] else 'disabled'}**")
 
     @music.command(name="lyrics", description="Show lyrics for the current song (karaoke style)")
-    async def lyrics(self, ctx, *, song_name: str = None):
+    async def lyrics(self, ctx, song_name: str = None, offset: float = 0.0):
         await ctx.defer()
         
         guild_id = ctx.guild.id
+        self.lyrics_offsets[guild_id] = offset
+        
         if guild_id in self.lyrics_tasks:
             self.lyrics_tasks[guild_id].cancel()
             del self.lyrics_tasks[guild_id]
 
+        artist = None
         if not song_name:
             data = self.current_tracks.get(guild_id)
             if not data or not ctx.voice_client:
                 return await ctx.send("❌ Nothing playing and no song name provided.")
             song_name = data['title']
+            artist = data.get('uploader') or data.get('artist')
             follow = True
         else:
             follow = False
         
         try:
             # Try synced lyrics first
-            parsed_lyrics = await self._fetch_synced_lyrics(song_name)
+            parsed_lyrics = await self._fetch_synced_lyrics(song_name, artist)
             
             if parsed_lyrics:
+                await ctx.send(f"🎤 **Synced lyrics found!** Starting karaoke display...", delete_after=5)
                 task = self.bot.loop.create_task(self.show_synced_lyrics(ctx, parsed_lyrics, follow=follow))
                 self.lyrics_tasks[guild_id] = task
                 return
 
+            await ctx.send("ℹ️ **Synced lyrics not found.** Falling back to static lyrics.", delete_after=5)
             # Fallback to standard Genius lyrics
             search_query = re.sub(r'\(.*?\)|\[.*?\]', '', song_name)
             search_query = re.sub(r'Official Video|Music Video|Lyric Video|Lyrics', '', search_query, flags=re.I).strip()

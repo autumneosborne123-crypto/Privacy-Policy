@@ -169,6 +169,32 @@ class Economy(commands.Cog):
         
         await ctx.send(f"🛒 You bought a **{item['name']}** ([{item.get('rank', 'Common')}]) for **{item['price']}** RC!")
         await self.bot.log_action(ctx.guild, "Item Purchase", f"**{ctx.author}** bought **{item['name']}** ([{item.get('rank', 'Common')}]) for **{item['price']}** RC.", color=0x2ecc71, moderator=ctx.author)
+        
+    @commands.hybrid_command(name="work", description="Work to earn some Rose Coins")
+    @commands.cooldown(1, 300, commands.BucketType.user) # 5 minute cooldown
+    async def work(self, ctx):
+        await ctx.defer()
+        jobs = [
+            "tending to the flower gardens",
+            "cleaning the rose petals",
+            "helping a fellow adventurer",
+            "gathering honey from the bees",
+            "polishing some golden flowers",
+            "watering the thirsty plants"
+        ]
+        job = random.choice(jobs)
+        reward = random.randint(50, 150)
+        
+        is_premium = await self.bot.db.is_user_premium(ctx.author.id)
+        if is_premium:
+            reward = int(reward * 1.5)
+            
+        await self.bot.update_balance(ctx.author.id, reward)
+        
+        msg = f"🔨 You spent some time **{job}** and earned **{reward}** RC <:rose_coin:1533598631612125397>!"
+        if is_premium:
+            msg += " (Premium bonus included! ✨)"
+        await ctx.send(msg)
 
     @commands.hybrid_command(name="inventory", aliases=["inv"], description="View your inventory")
     async def inventory(self, ctx, member: discord.Member = None):
