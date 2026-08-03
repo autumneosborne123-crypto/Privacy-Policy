@@ -122,7 +122,7 @@ class Music(commands.Cog):
         self.autoplays = {}
         self.lyrics_tasks = {}
         self.lyrics_offsets = {}
-        self.default_lyrics_offset = -0.2 # 200ms default latency compensation (reduced from 500ms for better sync)
+        self.default_lyrics_offset = -0.4 # 400ms lead for better sync with Discord message lag
         self.active_filters = {}
         self.autoplay_history = {}
         self.genius = lyricsgenius.Genius(os.getenv('GENIUS_TOKEN', "Your_Genius_API_Token_Here"))
@@ -258,6 +258,12 @@ class Music(commands.Cog):
             self.start_times[guild_id] = time.time()
             self.total_paused_durations[guild_id] = 0
             await ctx.send(f"🎶 **Now playing:** {data['title']}")
+            
+            # Autolyrics check
+            autolyrics = await self.bot.db.get_guild_setting(guild_id, "autolyrics", int)
+            if autolyrics and guild_id not in self.lyrics_tasks:
+                # Use a small delay to ensure audio has actually buffered and started
+                self.bot.loop.call_later(2, lambda: self.bot.loop.create_task(self.lyrics.callback(self, ctx)))
         except Exception as e:
             logging.error(f"Music error in {ctx.guild.name}: {e}")
             await ctx.send(f"❌ Error playing song: {e}")
@@ -530,7 +536,11 @@ class Music(commands.Cog):
                 elapsed = self.get_elapsed(guild_id, ctx.voice_client)
                 # Add manual offset + default compensation
                 elapsed += self.lyrics_offsets.get(guild_id, 0.0) + self.default_lyrics_offset
-                
+        
+                # Tighten the loop for better sync
+                # We calculate the next sleep based on the distance to the next lyric
+                # but for now just faster constant refresh is safer
+        
                 current_index = -1
                 for i, (ts, text) in enumerate(parsed_lyrics):
                     if ts <= elapsed:
@@ -584,7 +594,7 @@ class Music(commands.Cog):
                         except discord.HTTPException:
                             pass # Rate limited or other issue
                 
-                await asyncio.sleep(0.8) # Slightly faster refresh for better sync
+                await asyncio.sleep(0.5) # Faster refresh for perfect sync
         except asyncio.CancelledError:
             pass
         except Exception as e:
@@ -749,6 +759,21 @@ class Music(commands.Cog):
         guild_id = ctx.guild.id
         self.autoplays[guild_id] = not self.autoplays.get(guild_id, False)
         await ctx.send(f"📻 Autoplay is now **{'enabled' if self.autoplays[guild_id] else 'disabled'}**")
+
+    @music.command(name="autolyrics", description="Toggle automatic lyrics display on song change")
+    @is_dj()
+    async def autolyrics(self, ctx):
+        guild_id = ctx.guild.id
+        current = await self.bot.db.get_guild_setting(guild_id, "autolyrics", int)
+        new_val = 0 if current else 1
+        await self.bot.db.set_guild_setting(guild_id, "autolyrics", new_val)
+        
+        status = "enabled" if new_val else "disabled"
+        await ctx.send(f"🎤 **Auto-Lyrics** has been **{status}**.")
+        
+        # If enabled and playing, start them now
+        if new_val and ctx.voice_client and ctx.voice_client.is_playing() and guild_id not in self.lyrics_tasks:
+            await self.lyrics.callback(self, ctx)
 
     @music.command(name="lyrics", description="Show lyrics for the current song (karaoke style)")
     async def lyrics(self, ctx, song_name: str = None, offset: float = 0.0):

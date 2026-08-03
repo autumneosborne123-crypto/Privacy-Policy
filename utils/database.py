@@ -126,7 +126,8 @@ class Database:
                 'log_member_join': 'BOOLEAN DEFAULT 1',
                 'log_member_leave': 'BOOLEAN DEFAULT 1',
                 'log_voice_activity': 'BOOLEAN DEFAULT 1',
-                'premium_247': 'BOOLEAN DEFAULT 0'
+                'premium_247': 'BOOLEAN DEFAULT 0',
+                'autolyrics': 'BOOLEAN DEFAULT 0'
             }
             for col, col_type in new_cols.items():
                 if col not in gs_columns:
