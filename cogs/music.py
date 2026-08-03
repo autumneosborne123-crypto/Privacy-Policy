@@ -36,13 +36,13 @@ YTDL_OPTIONS = {
 }
 FFMPEG_OPTIONS = {
     'options': '-vn',
-    'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -probesize 1M -analyzeduration 1M'
+    'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -probesize 1M -analyzeduration 1M -user_agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"'
 }
 
 FILTERS = {
     'bassboost': 'bass=g=20,dynaudnorm=f=200',
-    'nightcore': 'asetrate=48000*1.25,aresample=48000',
-    'vaporwave': 'asetrate=48000*0.8,aresample=48000',
+    'nightcore': 'asetrate=48000*1.25,aresample=48000:async=1',
+    'vaporwave': 'asetrate=48000*0.8,aresample=48000:async=1',
     '8d': 'apulsator=hz=0.125',
 }
 
@@ -98,11 +98,16 @@ class YTDLSource(discord.PCMVolumeTransformer):
 
         filename = data['url'] if stream else yt_dlp.prepare_filename(data)
         
-        options = FFMPEG_OPTIONS['options']
+        options_list = [FFMPEG_OPTIONS['options']]
+        filters = ['aresample=async=1']
+        
         if audio_filter and audio_filter in FILTERS:
-            options += f' -af "{FILTERS[audio_filter]}"'
+            filters.append(FILTERS[audio_filter])
             
-        return cls(discord.FFmpegPCMAudio(filename, before_options=FFMPEG_OPTIONS['before_options'], options=options), data=data, tempo=tempo)
+        if filters:
+            options_list.append(f'-af "{",".join(filters)}"')
+            
+        return cls(discord.FFmpegPCMAudio(filename, before_options=FFMPEG_OPTIONS['before_options'], options=" ".join(options_list)), data=data, tempo=tempo)
 
 class Music(commands.Cog):
     def __init__(self, bot):
@@ -117,7 +122,7 @@ class Music(commands.Cog):
         self.autoplays = {}
         self.lyrics_tasks = {}
         self.lyrics_offsets = {}
-        self.default_lyrics_offset = -0.5 # 500ms default latency compensation
+        self.default_lyrics_offset = -0.2 # 200ms default latency compensation (reduced from 500ms for better sync)
         self.active_filters = {}
         self.autoplay_history = {}
         self.genius = lyricsgenius.Genius(os.getenv('GENIUS_TOKEN', "Your_Genius_API_Token_Here"))
@@ -317,6 +322,7 @@ class Music(commands.Cog):
     @music.command(name="skip", description="Skip the current song")
     @is_dj()
     async def skip(self, ctx):
+        await ctx.defer()
         if not ctx.voice_client or not ctx.voice_client.is_playing():
             return await ctx.send("❌ Nothing is playing.")
         ctx.voice_client.stop()
@@ -325,6 +331,7 @@ class Music(commands.Cog):
     @music.command(name="stop", description="Stop and disconnect")
     @is_dj()
     async def stop(self, ctx):
+        await ctx.defer()
         if not ctx.voice_client: return await ctx.send("❌ Not in a voice channel.")
         self.queues[ctx.guild.id] = []
         self.current_tracks[ctx.guild.id] = None
@@ -334,6 +341,7 @@ class Music(commands.Cog):
     @music.command(name="pause", description="Pause music")
     @is_dj()
     async def pause(self, ctx):
+        await ctx.defer()
         if ctx.voice_client and ctx.voice_client.is_playing():
             ctx.voice_client.pause()
             self.pause_times[ctx.guild.id] = time.time()
@@ -342,6 +350,7 @@ class Music(commands.Cog):
     @music.command(name="resume", description="Resume music")
     @is_dj()
     async def resume(self, ctx):
+        await ctx.defer()
         if ctx.voice_client and ctx.voice_client.is_paused():
             ctx.voice_client.resume()
             if ctx.guild.id in self.pause_times:
@@ -373,6 +382,7 @@ class Music(commands.Cog):
 
     @music.command(name="nowplaying", description="Show current song")
     async def nowplaying(self, ctx):
+        await ctx.defer()
         data = self.current_tracks.get(ctx.guild.id)
         if not data or not ctx.voice_client or (not ctx.voice_client.is_playing() and not ctx.voice_client.is_paused()):
             return await ctx.send("❌ Nothing playing.")
@@ -560,13 +570,17 @@ class Music(commands.Cog):
                     embed.set_footer(text=f"{progress}")
 
                     if not message:
-                        message = await ctx.send(embed=embed)
+                        try:
+                            message = await ctx.send(embed=embed)
+                        except discord.HTTPException:
+                            # Fallback to channel.send if interaction failed
+                            message = await ctx.channel.send(embed=embed)
                     else:
                         try:
                             await message.edit(embed=embed)
                         except discord.NotFound:
                             # Re-send if message was deleted
-                            message = await ctx.send(embed=embed)
+                            message = await ctx.channel.send(embed=embed)
                         except discord.HTTPException:
                             pass # Rate limited or other issue
                 

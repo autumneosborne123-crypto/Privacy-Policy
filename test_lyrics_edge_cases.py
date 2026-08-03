@@ -36,6 +36,8 @@ class TestLyricsEdgeCases(unittest.IsolatedAsyncioTestCase):
         ctx.voice_client = self.vc
         ctx.send = AsyncMock()
         ctx.defer = AsyncMock()
+        ctx.channel = AsyncMock()
+        ctx.channel.send = AsyncMock()
         return ctx
 
     async def test_lyrics_no_track_no_name(self):
@@ -151,14 +153,17 @@ class TestLyricsEdgeCases(unittest.IsolatedAsyncioTestCase):
         
         mock_msg = AsyncMock(spec=discord.Message)
         mock_msg.edit.side_effect = [discord.NotFound(MagicMock(), "Not Found"), None]
-        ctx.send.side_effect = [mock_msg, mock_msg]
+        ctx.send.return_value = mock_msg
+        ctx.channel.send.return_value = mock_msg
         
         # Change elapsed time so current_index changes from 0 to 1
         with patch.object(self.music_cog, 'get_elapsed', side_effect=[1.5, 2.5]):
             await self.music_cog.show_synced_lyrics(ctx, lyrics, follow=True)
             
-        # Should be called twice: once initially, once after NotFound
-        self.assertEqual(ctx.send.call_count, 2)
+        # Should be called once: initially
+        self.assertEqual(ctx.send.call_count, 1)
+        # Should be called once after NotFound
+        self.assertEqual(ctx.channel.send.call_count, 1)
 
     @patch('asyncio.sleep', AsyncMock())
     async def test_show_synced_lyrics_disconnect(self):

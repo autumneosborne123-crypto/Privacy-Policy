@@ -126,7 +126,7 @@ class TestPremiumFeatures(unittest.IsolatedAsyncioTestCase):
         with patch('discord.FFmpegPCMAudio', return_value=mock_source) as mock_ffmpeg:
             await YTDLSource.from_url(None, data=data, stream=True, audio_filter='bassboost')
             args, kwargs = mock_ffmpeg.call_args
-            self.assertIn('-af "bass=g=20,dynaudnorm=f=200"', kwargs.get('options', ''))
+            self.assertIn('aresample=async=1,bass=g=20,dynaudnorm=f=200', kwargs.get('options', ''))
 
     async def test_play_next_passes_filter(self):
         mock_ctx = AsyncMock()
