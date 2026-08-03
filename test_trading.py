@@ -43,6 +43,9 @@ async def test_trading():
     user_b = "user_b"
     
     print("--- Setup: Giving User A some coins and items ---")
+    # Reset balance to 0 first if we want to add exactly 1000
+    current_bal = await db.get_balance(user_a)
+    await bot.update_balance(user_a, -current_bal)
     await bot.update_balance(user_a, 1000)
     await db.add_item(user_a, "petal", 5)
     
@@ -51,6 +54,10 @@ async def test_trading():
     print(f"User A Balance: {bal_a}, Inventory: {inv_a}")
     
     print("\n--- Testing: Pay (Transfer Coins) ---")
+    # Reset User B balance to 0 first
+    current_bal_b = await db.get_balance(user_b)
+    await bot.update_balance(user_b, -current_bal_b)
+    
     amount_to_pay = 300
     # Logic from cogs/economy.py pay command
     await bot.update_balance(user_a, -amount_to_pay)

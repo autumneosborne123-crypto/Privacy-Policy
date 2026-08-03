@@ -17,6 +17,8 @@ class TestRealDBAdventure(unittest.IsolatedAsyncioTestCase):
         self.bot = AsyncMock()
         self.bot.db = self.db
         self.bot.whitelisted_bots = []
+        self.bot.dispatch = MagicMock() # dispatch is sync
+        self.bot.log_action = AsyncMock()
         
         self.adventure_cog = Adventure(self.bot)
 

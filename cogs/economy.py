@@ -20,18 +20,23 @@ class Economy(commands.Cog):
             "excalibur": {"name": "Excalibur", "price": 5000, "description": "A mythical sword of great power.", "rank": "Legendary"},
             "apple": {"name": "Apple", "price": 20, "description": "A simple fruit that restores a bit of energy.", "rank": "Common"},
             "honey_cake": {"name": "Honey Cake", "price": 150, "description": "A delicious treat that animals love.", "rank": "Rare"},
+            "super_bait": {"name": "Super Bait", "price": 150, "description": "A better bait for catching Uncommon animals.", "rank": "Uncommon"},
+            "revive": {"name": "Revive", "price": 500, "description": "Fully restores a fainted animal to life.", "rank": "Rare"},
+            "protein_shake": {"name": "Protein Shake", "price": 800, "description": "Permanently increases an animal's Attack by 3.", "rank": "Rare"},
+            "iron_shield": {"name": "Iron Shield", "price": 800, "description": "Permanently increases an animal's Defense by 3.", "rank": "Rare"},
             "mystic_petal": {"name": "Mystic Flower Petal", "price": 1000, "description": "A magical petal available only to Premium members. Used for legendary crafting.", "rank": "Epic", "premium_only": True}
         }
 
-    @commands.hybrid_command(name="balance", aliases=["bal"], description="Check your Blue Flower Coins balance")
+    @commands.hybrid_command(name="balance", aliases=["bal"], description="Check your Rose Coins balance")
     async def balance(self, ctx, member: discord.Member = None):
         member = member or ctx.author
         coins = await self.db.get_balance(member.id)
-        embed = discord.Embed(title=f"🔵🌹 {member.display_name}'s Balance", description=f"You have **{coins}** Blue Flower Coins (BFC) 🔵🌹.", color=0x3498db)
+        embed = discord.Embed(title=f"<:rose_coin:1533598631612125397> {member.display_name}'s Balance", description=f"You have **{coins}** Rose Coins (RC) <:rose_coin:1533598631612125397>.", color=0x3498db)
         await ctx.send(embed=embed)
 
-    @commands.hybrid_command(name="daily", description="Claim your daily Blue Flower Coins")
+    @commands.hybrid_command(name="daily", description="Claim your daily Rose Coins")
     async def daily(self, ctx):
+        await ctx.defer()
         data = await self.db.get_economy_data(ctx.author.id)
         last_daily = data['last_daily']
         current_time = time.time()
@@ -40,7 +45,10 @@ class Economy(commands.Cog):
             remaining = 86400 - (current_time - last_daily)
             hours = int(remaining // 3600)
             minutes = int((remaining % 3600) // 60)
-            return await ctx.send(f"⏳ You've already claimed your daily reward. Try again in **{hours}h {minutes}m**.", ephemeral=True)
+            msg = f"⏳ You've already claimed your daily reward. Try again in **{hours}h {minutes}m**."
+            if not await self.db.is_user_premium(ctx.author.id):
+                msg += "\n💡 *Tip: Premium members ($5.00/mo) get 2x Daily Coins!*"
+            return await ctx.send(msg, ephemeral=True)
         
         amount = random.randint(200, 500)
         is_premium = await self.db.is_user_premium(ctx.author.id)
@@ -50,13 +58,14 @@ class Economy(commands.Cog):
         await self.bot.update_balance(ctx.author.id, amount)
         await self.db.update_economy_cooldown(ctx.author.id, "daily", current_time)
         
-        msg = f"🎁 You claimed your daily reward and received **{amount}** Blue Flower Coins 🔵🌹!"
+        msg = f"🎁 You claimed your daily reward and received **{amount}** Rose Coins <:rose_coin:1533598631612125397>!"
         if is_premium:
             msg += " (2x Premium Multiplier applied! ✨)"
         await ctx.send(msg)
 
-    @commands.hybrid_command(name="pay", description="Pay Blue Flower Coins to another user")
+    @commands.hybrid_command(name="pay", description="Pay Rose Coins to another user")
     async def pay(self, ctx, member: discord.Member, amount: int):
+        await ctx.defer()
         if amount <= 0:
             return await ctx.send("❌ Amount must be positive.", ephemeral=True)
         if member == ctx.author:
@@ -64,16 +73,17 @@ class Economy(commands.Cog):
         
         balance = await self.db.get_balance(ctx.author.id)
         if balance < amount:
-            return await ctx.send("❌ You don't have enough Blue Flower Coins.", ephemeral=True)
+            return await ctx.send("❌ You don't have enough Rose Coins.", ephemeral=True)
         
         await self.bot.update_balance(ctx.author.id, -amount)
         await self.bot.update_balance(member.id, amount)
         
-        await ctx.send(f"✅ You paid **{amount}** BFC to {member.mention}.")
-        await self.bot.log_action(ctx.guild, "BFC Transfer", f"**{ctx.author}** paid **{amount}** BFC to **{member}**.", color=0x3498db, moderator=ctx.author, user=member)
+        await ctx.send(f"✅ You paid **{amount}** RC to {member.mention}.")
+        await self.bot.log_action(ctx.guild, "RC Transfer", f"**{ctx.author}** paid **{amount}** RC to **{member}**.", color=0x3498db, moderator=ctx.author, user=member)
 
-    @commands.hybrid_command(name="rob", description="Attempt to rob Blue Flower Coins from another user")
+    @commands.hybrid_command(name="rob", description="Attempt to rob Rose Coins from another user")
     async def rob(self, ctx, member: discord.Member):
+        await ctx.defer()
         if member == ctx.author:
             return await ctx.send("❌ You cannot rob yourself.", ephemeral=True)
         
@@ -87,7 +97,10 @@ class Economy(commands.Cog):
             remaining = cooldown - (current_time - last_rob)
             minutes = int(remaining // 60)
             seconds = int(remaining % 60)
-            return await ctx.send(f"⏳ This command is on cooldown. Try again in **{minutes}m {seconds}s**.", ephemeral=True)
+            msg = f"⏳ This command is on cooldown. Try again in **{minutes}m {seconds}s**."
+            if not is_premium:
+                msg += "\n💡 *Tip: Premium members ($5.00/mo) get 50% reduced rob cooldowns!*"
+            return await ctx.send(msg, ephemeral=True)
 
         target_balance = await self.db.get_balance(member.id)
         my_balance = data['coins']
@@ -103,32 +116,33 @@ class Economy(commands.Cog):
             await self.bot.update_balance(ctx.author.id, stolen)
             await self.bot.update_balance(member.id, -stolen)
             await self.db.update_economy_cooldown(ctx.author.id, "rob", current_time)
-            await ctx.send(f"💸 Success! You robbed **{stolen}** BFC from {member.mention}!")
+            await ctx.send(f"💸 Success! You robbed **{stolen}** RC from {member.mention}!")
             self.bot.dispatch("rob_success", ctx.author.id)
-            await self.bot.log_action(ctx.guild, "Robbery Success", f"**{ctx.author}** robbed **{stolen}** BFC from **{member}**.", color=0xe74c3c, moderator=ctx.author, user=member)
+            await self.bot.log_action(ctx.guild, "Robbery Success", f"**{ctx.author}** robbed **{stolen}** RC from **{member}**.", color=0xe74c3c, moderator=ctx.author, user=member)
         else:
             fine = random.randint(50, min(my_balance, 200)) if my_balance > 0 else 0
             if fine > 0:
                 await self.bot.update_balance(ctx.author.id, -fine)
                 await self.db.update_economy_cooldown(ctx.author.id, "rob", current_time)
-                await ctx.send(f"👮 You got caught! You were fined **{fine}** BFC.")
-                await self.bot.log_action(ctx.guild, "Robbery Failure", f"**{ctx.author}** tried to rob **{member}** but failed and was fined **{fine}** BFC.", color=0x95a5a6, moderator=ctx.author, user=member)
+                await ctx.send(f"👮 You got caught! You were fined **{fine}** RC.")
+                await self.bot.log_action(ctx.guild, "Robbery Failure", f"**{ctx.author}** tried to rob **{member}** but failed and was fined **{fine}** RC.", color=0x95a5a6, moderator=ctx.author, user=member)
             else:
                 await self.db.update_economy_cooldown(ctx.author.id, "rob", current_time)
                 await ctx.send(f"👮 You got caught! Luckily, you have no money to pay the fine.")
                 await self.bot.log_action(ctx.guild, "Robbery Failure", f"**{ctx.author}** tried to rob **{member}** but failed. No fine was issued.", color=0x95a5a6, moderator=ctx.author, user=member)
 
-    @commands.hybrid_command(name="shop", description="Browse the Blue Flower Store")
+    @commands.hybrid_command(name="shop", description="Browse the Rose Store")
     async def shop(self, ctx):
-        embed = discord.Embed(title="🏪 Blue Flower Store", description="Buy items with your Blue Flower Coins 🔵🌹!", color=0x2ecc71)
+        embed = discord.Embed(title="🏪 Rose Store", description="Buy items with your Rose Coins <:rose_coin:1533598631612125397>!", color=0x2ecc71)
         for item_id, details in self.shop_items.items():
             rank_str = f" [{details['rank']}]"
-            embed.add_field(name=f"{details['name']}{rank_str} — {details['price']} BFC 🔵🌹", value=details['description'], inline=False)
+            embed.add_field(name=f"{details['name']}{rank_str} — {details['price']} RC <:rose_coin:1533598631612125397>", value=details['description'], inline=False)
         embed.set_footer(text="Use .buy <item_name> to purchase.")
         await ctx.send(embed=embed)
 
     @commands.hybrid_command(name="buy", description="Buy an item from the store")
     async def buy(self, ctx, *, item_name: str):
+        await ctx.defer()
         item_id = item_name.lower().replace(" ", "_")
         if item_id not in self.shop_items:
             # Try to find by name
@@ -143,23 +157,18 @@ class Economy(commands.Cog):
         
         item = self.shop_items[item_id]
         if item.get('premium_only') and not await self.db.is_user_premium(ctx.author.id):
-            dashboard_url = "http://flowerbot.gg:5000"
-            try:
-                from cogs.dashboard import DASHBOARD_URL
-                dashboard_url = DASHBOARD_URL
-            except: pass
-            return await ctx.send(f"✨ This item is exclusive to **flowerbot.gg Premium** members! Visit {dashboard_url} to upgrade.", ephemeral=True)
+            return await ctx.send(f"✨ This item is exclusive to **flowerbot.gg Premium** members ($5.00/mo)!", ephemeral=True)
             
         balance = await self.db.get_balance(ctx.author.id)
         
         if balance < item['price']:
-            return await ctx.send(f"❌ You don't have enough BFC to buy {item['name']}.", ephemeral=True)
+            return await ctx.send(f"❌ You don't have enough RC to buy {item['name']}.", ephemeral=True)
         
         await self.bot.update_balance(ctx.author.id, -item['price'])
         await self.db.add_item(ctx.author.id, item_id, 1, rank=item.get('rank', 'Common'))
         
-        await ctx.send(f"🛒 You bought a **{item['name']}** ([{item.get('rank', 'Common')}]) for **{item['price']}** BFC!")
-        await self.bot.log_action(ctx.guild, "Item Purchase", f"**{ctx.author}** bought **{item['name']}** ([{item.get('rank', 'Common')}]) for **{item['price']}** BFC.", color=0x2ecc71, moderator=ctx.author)
+        await ctx.send(f"🛒 You bought a **{item['name']}** ([{item.get('rank', 'Common')}]) for **{item['price']}** RC!")
+        await self.bot.log_action(ctx.guild, "Item Purchase", f"**{ctx.author}** bought **{item['name']}** ([{item.get('rank', 'Common')}]) for **{item['price']}** RC.", color=0x2ecc71, moderator=ctx.author)
 
     @commands.hybrid_command(name="inventory", aliases=["inv"], description="View your inventory")
     async def inventory(self, ctx, member: discord.Member = None):

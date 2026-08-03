@@ -58,6 +58,16 @@ class ConfigCog(commands.Cog, name="Config"):
         await self.bot.db.set_guild_setting(ctx.guild.id, "level_up_channel_id", str(channel.id))
         await ctx.send(f"Level-up notifications set to {channel.mention}!", ephemeral=True)
 
+    @commands.hybrid_command(name="set_leveling_channel", description="Set the channel where leveling commands can be used")
+    @is_admin()
+    async def set_leveling_channel(self, ctx, channel: discord.TextChannel = None):
+        if channel:
+            await self.bot.db.set_guild_setting(ctx.guild.id, "leveling_channel_id", str(channel.id))
+            await ctx.send(f"Leveling commands are now restricted to {channel.mention}!", ephemeral=True)
+        else:
+            await self.bot.db.set_guild_setting(ctx.guild.id, "leveling_channel_id", None)
+            await ctx.send("Leveling commands can now be used in any channel.", ephemeral=True)
+
     @commands.hybrid_command(name="settings", description="Show current bot settings for this server")
     @is_admin()
     async def settings(self, ctx):
@@ -78,7 +88,9 @@ class ConfigCog(commands.Cog, name="Config"):
         # Leveling
         l_chan_id = settings.get("level_up_channel_id")
         l_chan = self.bot.get_channel(int(l_chan_id)) if l_chan_id else None
-        embed.add_field(name="📈 Leveling", value=f"**Notification Channel:** {l_chan.mention if l_chan else 'Original'}", inline=False)
+        lc_chan_id = settings.get("leveling_channel_id")
+        lc_chan = self.bot.get_channel(int(lc_chan_id)) if lc_chan_id else None
+        embed.add_field(name="📈 Leveling", value=f"**Notification Channel:** {l_chan.mention if l_chan else 'Original'}\n**Command Restriction:** {lc_chan.mention if lc_chan else 'Any'}", inline=False)
         
         # Music
         m_chan_id = settings.get("music_channel_id")
@@ -139,15 +151,15 @@ class ConfigCog(commands.Cog, name="Config"):
             await self.bot.db.set_log_channel(ctx.guild.id, None)
             await ctx.send("❌ Bot audit logs have been disabled for this server.", ephemeral=True)
 
-    @commands.hybrid_command(name="set_mute_role", description="Set the role used for muting members")
+    @commands.command(name="set_mute_role", description="Set the role used for muting members")
     @is_admin()
     async def set_mute_role(self, ctx, role: discord.Role = None):
         if role:
             await self.bot.db.set_mute_role(ctx.guild.id, role.id)
-            await ctx.send(f"✅ Mute role set to {role.mention}.", ephemeral=True)
+            await ctx.send(f"✅ Mute role set to {role.mention}.")
         else:
             await self.bot.db.set_mute_role(ctx.guild.id, None)
-            await ctx.send("❌ Mute role has been removed. Muting will now only use timeouts.", ephemeral=True)
+            await ctx.send("❌ Mute role has been removed. Muting will now only use timeouts.")
 
     @commands.hybrid_command(name="set_embed_channel", description="Set the channel for embed commands")
     @is_admin()

@@ -1,5 +1,6 @@
 import discord
 from discord.ext import commands
+from discord import app_commands
 import random
 import asyncio
 
@@ -12,22 +13,43 @@ class Adventure(commands.Cog):
             "fire_fox": {"name": "Fire Fox", "type": "Fire", "hp": 45, "attack": 15, "defense": 5, "speed": 12, "rarity": "Common"},
             "water_turtle": {"name": "Water Turtle", "type": "Water", "hp": 60, "attack": 8, "defense": 12, "speed": 5, "rarity": "Common"},
             "electric_mouse": {"name": "Electric Mouse", "type": "Electric", "hp": 40, "attack": 12, "defense": 5, "speed": 20, "rarity": "Uncommon"},
+            "ice_wolf": {"name": "Ice Wolf", "type": "Ice", "hp": 55, "attack": 14, "defense": 8, "speed": 14, "rarity": "Uncommon"},
+            "magma_slug": {"name": "Magma Slug", "type": "Magma", "hp": 70, "attack": 18, "defense": 10, "speed": 4, "rarity": "Uncommon"},
             "stone_golem": {"name": "Stone Golem", "type": "Rock", "hp": 80, "attack": 10, "defense": 15, "speed": 2, "rarity": "Rare"},
-            "shadow_dragon": {"name": "Shadow Dragon", "type": "Shadow", "hp": 100, "attack": 25, "defense": 20, "speed": 18, "rarity": "Legendary"}
+            "thunder_bird": {"name": "Thunder Bird", "type": "Electric", "hp": 65, "attack": 22, "defense": 8, "speed": 25, "rarity": "Rare"},
+            "crystal_deer": {"name": "Crystal Deer", "type": "Crystal", "hp": 90, "attack": 15, "defense": 20, "speed": 15, "rarity": "Rare"},
+            "shadow_dragon": {"name": "Shadow Dragon", "type": "Shadow", "hp": 100, "attack": 25, "defense": 20, "speed": 18, "rarity": "Legendary"},
+            "celestial_phoenix": {"name": "Celestial Phoenix", "type": "Celestial", "hp": 120, "attack": 30, "defense": 25, "speed": 30, "rarity": "Legendary"}
         }
+
+    async def animal_autocomplete(self, interaction: discord.Interaction, current: str):
+        animals = await self.db.get_user_animals(interaction.user.id)
+        choices = []
+        for a in animals:
+            # id, animal_type, nickname, level, ...
+            a_id, a_type, nick, lvl = a[0], a[1], a[2], a[3]
+            name = self.animals_data[a_type]['name']
+            label = f"{nick} ({name}) Lvl {lvl}"
+            if current.lower() in label.lower():
+                choices.append(app_commands.Choice(name=label, value=str(a_id)))
+        return choices[:25]
 
     @commands.hybrid_command(name="catch", description="Try to catch a wild animal")
     async def catch(self, ctx):
+        await ctx.defer()
         # Check if user has bait
         inventory = await self.db.get_inventory(ctx.author.id)
-        has_bait = any(item[0] == 'bait' or item[0] == 'ultra_bait' for item in inventory)
+        # Prioritize best bait
+        bait_type = None
+        for b in ['ultra_bait', 'super_bait', 'bait']:
+            if any(item[0] == b for item in inventory):
+                bait_type = b
+                break
         
-        if not has_bait:
+        if not bait_type:
             return await ctx.send("❌ You need **Bait** to catch animals! Buy some in the `.shop`.", ephemeral=True)
         
-        # Determine bait used (prefer ultra_bait if both exist?)
-        bait_type = 'ultra_bait' if any(item[0] == 'ultra_bait' for item in inventory) else 'bait'
-        bait_rank = 'Rare' if bait_type == 'ultra_bait' else 'Common'
+        bait_rank = 'Rare' if bait_type == 'ultra_bait' else 'Uncommon' if bait_type == 'super_bait' else 'Common'
         await self.db.remove_item(ctx.author.id, bait_type, 1, rank=bait_rank)
         
         # Pick a random animal based on rarity
@@ -35,12 +57,16 @@ class Adventure(commands.Cog):
         
         rarity_chances = {"Common": 0.6, "Uncommon": 0.25, "Rare": 0.1, "Legendary": 0.05}
         if bait_type == 'ultra_bait':
-            rarity_chances = {"Common": 0.3, "Uncommon": 0.3, "Rare": 0.25, "Legendary": 0.15}
+            rarity_chances = {"Common": 0.2, "Uncommon": 0.3, "Rare": 0.35, "Legendary": 0.15}
+        elif bait_type == 'super_bait':
+            rarity_chances = {"Common": 0.4, "Uncommon": 0.35, "Rare": 0.2, "Legendary": 0.05}
         
         if is_premium:
             # Boost higher rarities for premium
             if bait_type == 'ultra_bait':
-                rarity_chances = {"Common": 0.15, "Uncommon": 0.25, "Rare": 0.35, "Legendary": 0.25}
+                rarity_chances = {"Common": 0.1, "Uncommon": 0.2, "Rare": 0.45, "Legendary": 0.25}
+            elif bait_type == 'super_bait':
+                rarity_chances = {"Common": 0.3, "Uncommon": 0.4, "Rare": 0.2, "Legendary": 0.1}
             else:
                 rarity_chances = {"Common": 0.4, "Uncommon": 0.35, "Rare": 0.15, "Legendary": 0.1}
         
@@ -59,7 +85,7 @@ class Adventure(commands.Cog):
         
         # Catch chance
         catch_roll = random.random()
-        catch_chance = 0.7 if bait_type == 'bait' else 0.9
+        catch_chance = 0.7 if bait_type == 'bait' else 0.8 if bait_type == 'super_bait' else 0.95
         if catch_roll <= catch_chance:
             stats = {
                 "hp": animal['hp'],
@@ -180,7 +206,7 @@ class Adventure(commands.Cog):
             # Rewards for winner
             reward = random.randint(50, 150)
             await self.bot.update_balance(ctx.author.id, reward)
-            await ctx.send(f"🔵🌹 {ctx.author.mention} earned **{reward}** BFC!")
+            await ctx.send(f"<:rose_coin:1533598631612125397> {ctx.author.mention} earned **{reward}** RC!")
             
             # Progress quest if exists
             res = await self.db.update_quest_progress(ctx.author.id, "win_battles")
@@ -198,11 +224,18 @@ class Adventure(commands.Cog):
             
             if leveled_up:
                 await ctx.send(f"✨ **{a_nick}** leveled up to **{new_lvl}**!")
+                # Progress quest if exists
+                res = await self.db.update_quest_progress(ctx.author.id, "train_animals")
+                if res == "COMPLETED":
+                    self.bot.dispatch("quest_completion", ctx.author.id)
             
             await self.db.update_animal(attacker[0], {"hp": max(0, a_hp), "xp": new_xp, "level": new_lvl})
 
     @commands.hybrid_command(name="heal", description="Heal your animal using medicine")
-    async def heal(self, ctx, animal_id: int):
+    @app_commands.autocomplete(animal_id=animal_autocomplete)
+    async def heal(self, ctx, animal_id: str):
+        await ctx.defer()
+        animal_id = int(animal_id)
         inventory = await self.db.get_inventory(ctx.author.id)
         if not any(item[0] == 'medicine' for item in inventory):
             return await ctx.send("❌ You don't have any medicine! Buy some in the `.shop`.", ephemeral=True)
@@ -218,8 +251,136 @@ class Adventure(commands.Cog):
         await self.db.update_animal(animal_id, {"hp": new_hp})
         await ctx.send(f"💊 You used medicine on **{animal[2]}**. HP is now {new_hp}/{animal[6]}.")
 
+    @commands.hybrid_command(name="train", description="Train your animal to gain XP")
+    @commands.cooldown(1, 30, commands.BucketType.user)
+    @app_commands.autocomplete(animal_id=animal_autocomplete)
+    async def train(self, ctx, animal_id: str):
+        await ctx.defer()
+        animal_id = int(animal_id)
+        animals = await self.db.get_user_animals(ctx.author.id)
+        animal = next((a for a in animals if a[0] == animal_id), None)
+        if not animal: return await ctx.send("❌ Animal not found.")
+        
+        if animal[5] <= 0: return await ctx.send("❌ This animal is fainted! Heal it first.")
+        
+        # Training takes a bit of HP
+        hp_cost = random.randint(5, 15)
+        new_hp = max(0, animal[5] - hp_cost)
+        
+        xp_gain = random.randint(20, 50)
+        new_xp = animal[4] + xp_gain
+        new_lvl = animal[3]
+        leveled_up = False
+        while new_xp >= 100:
+            new_xp -= 100
+            new_lvl += 1
+            leveled_up = True
+            
+        await self.db.update_animal(animal_id, {"hp": new_hp, "xp": new_xp, "level": new_lvl})
+        
+        msg = f"💪 **{animal[2]}** trained hard and gained **{xp_gain}** XP! (Remaining HP: {new_hp}/{animal[6]})"
+        if leveled_up:
+            msg += f"\n✨ **Leveled up to {new_lvl}!**"
+            # Progress quest
+            res = await self.db.update_quest_progress(ctx.author.id, "train_animals")
+            if res == "COMPLETED":
+                self.bot.dispatch("quest_completion", ctx.author.id)
+                
+        await ctx.send(msg)
+
+    @commands.hybrid_command(name="explore", description="Explore the wild for random events and rewards")
+    @commands.cooldown(1, 60, commands.BucketType.user)
+    async def explore(self, ctx):
+        await ctx.defer()
+        events = [
+            {"text": "You found a hidden patch of Rose Flowers!", "reward_coins": random.randint(100, 300)},
+            {"text": "You discovered a lost item in the bushes!", "reward_item": random.choice(["petal", "bait", "medicine"])},
+            {"text": "A wild animal approached you but ran away, leaving some fur behind.", "reward_item": "petal"},
+            {"text": "You tripped and lost some coins...", "reward_coins": -random.randint(20, 50)},
+            {"text": "The sun is shining beautifully. You feel refreshed!", "reward_hp": 20},
+            {"text": "You found a Rare Flower Petal!", "reward_item": "super_petal"},
+            {"text": "You stumbled upon an ancient shrine!", "reward_item": "protein_shake"},
+            {"text": "You found a buried treasure chest!", "reward_coins": 1000}
+        ]
+        
+        event = random.choice(events)
+        result_text = event['text']
+        
+        if 'reward_coins' in event:
+            await self.bot.update_balance(ctx.author.id, event['reward_coins'])
+            result_text += f"\n💰 Result: **{event['reward_coins']}** RC"
+        
+        if 'reward_item' in event:
+            # Determine rank for explore items
+            rank = 'Rare' if event['reward_item'] in ['super_petal', 'protein_shake'] else 'Common'
+            await self.db.add_item(ctx.author.id, event['reward_item'], 1, rank=rank)
+            result_text += f"\n📦 Result: **1x {event['reward_item'].replace('_', ' ').title()}**"
+            
+        if 'reward_hp' in event:
+            animals = await self.db.get_user_animals(ctx.author.id)
+            if animals:
+                animal = random.choice(animals)
+                new_hp = min(animal[6], animal[5] + event['reward_hp'])
+                await self.db.update_animal(animal[0], {"hp": new_hp})
+                result_text += f"\n💖 Result: **{animal[2]}** recovered some HP!"
+        
+        await ctx.send(f"🌸 **{ctx.author.display_name}'s Adventure**\n{result_text}")
+        
+        # Progress quest
+        res = await self.db.update_quest_progress(ctx.author.id, "explore_events")
+        if res == "COMPLETED":
+            self.bot.dispatch("quest_completion", ctx.author.id)
+
+    @commands.hybrid_command(name="revive", description="Revive a fainted animal using a Revive item")
+    @app_commands.autocomplete(animal_id=animal_autocomplete)
+    async def revive(self, ctx, animal_id: str):
+        await ctx.defer()
+        animal_id = int(animal_id)
+        inventory = await self.db.get_inventory(ctx.author.id)
+        if not any(item[0] == 'revive' for item in inventory):
+            return await ctx.send("❌ You don't have any Revive! Buy some in the `.shop`.", ephemeral=True)
+        
+        animals = await self.db.get_user_animals(ctx.author.id)
+        animal = next((a for a in animals if a[0] == animal_id), None)
+        if not animal: return await ctx.send("❌ Animal not found.")
+        
+        if animal[5] > 0: return await ctx.send("❌ This animal is not fainted.")
+        
+        await self.db.remove_item(ctx.author.id, 'revive', 1, rank='Rare')
+        await self.db.update_animal(animal_id, {"hp": animal[6]})
+        await ctx.send(f"👼 You used Revive on **{animal[2]}**! It's back to full HP.")
+
+    @commands.hybrid_command(name="boost", description="Permanently boost an animal's stats using Protein Shake or Iron Shield")
+    @app_commands.autocomplete(animal_id=animal_autocomplete)
+    async def boost(self, ctx, animal_id: str, item_name: str):
+        await ctx.defer()
+        animal_id = int(animal_id)
+        item_name = item_name.lower().replace(" ", "_")
+        if item_name not in ["protein_shake", "iron_shield"]:
+            return await ctx.send("❌ Invalid boost item. Use `protein_shake` or `iron_shield`.", ephemeral=True)
+            
+        inventory = await self.db.get_inventory(ctx.author.id)
+        if not any(item[0] == item_name for item in inventory):
+            return await ctx.send(f"❌ You don't have a **{item_name.replace('_', ' ').title()}**!", ephemeral=True)
+        
+        animals = await self.db.get_user_animals(ctx.author.id)
+        animal = next((a for a in animals if a[0] == animal_id), None)
+        if not animal: return await ctx.send("❌ Animal not found.")
+        
+        await self.db.remove_item(ctx.author.id, item_name, 1, rank='Rare')
+        
+        if item_name == "protein_shake":
+            new_val = animal[7] + 3
+            await self.db.update_animal(animal_id, {"attack": new_val})
+            await ctx.send(f"💪 **{animal[2]}** drank a Protein Shake! Attack increased to **{new_val}**!")
+        else:
+            new_val = animal[8] + 3
+            await self.db.update_animal(animal_id, {"defense": new_val})
+            await ctx.send(f"🛡️ **{animal[2]}** used an Iron Shield! Defense increased to **{new_val}**!")
+
     @commands.hybrid_command(name="quest", description="View your current quests")
     async def quest(self, ctx):
+        await ctx.defer()
         quests = await self.db.get_quests(ctx.author.id)
         active_quests = [q for q in quests if not q[5]]
         
@@ -227,7 +388,10 @@ class Adventure(commands.Cog):
             # Assign a random quest if none exist or all are completed
             q_types = [
                 ("catch_animals", 3, 500, "bait", "Catch 3 Animals"),
-                ("win_battles", 5, 1000, "ultra_bait", "Win 5 Battles")
+                ("win_battles", 5, 1000, "ultra_bait", "Win 5 Battles"),
+                ("train_animals", 2, 800, "medicine", "Level Up 2 Animals"),
+                ("explore_events", 3, 600, "super_petal", "Explore the Wild 3 times"),
+                ("raid_participate", 1, 1500, "ultra_bait", "Participate in 1 Raid")
             ]
             q = random.choice(q_types)
             await self.db.add_quest(ctx.author.id, q[0], q[1], q[2], q[3])
@@ -239,7 +403,7 @@ class Adventure(commands.Cog):
             # quest_id, progress, goal, reward_coins, reward_item, completed
             qid, prog, goal, rc, ri, comp = q
             status = "✅ Completed" if comp else f"Progress: {prog}/{goal}"
-            embed.add_field(name=qid.replace("_", " ").title(), value=f"{status}\nReward: {rc} BFC 🔵🌹, {ri}", inline=False)
+            embed.add_field(name=qid.replace("_", " ").title(), value=f"{status}\nReward: {rc} RC <:rose_coin:1533598631612125397>, {ri}", inline=False)
         
         await ctx.send(embed=embed)
 
@@ -280,9 +444,17 @@ class Adventure(commands.Cog):
         if not participants_data:
             return await ctx.send("❌ None of the participants have healthy animals!")
         
+        # Dispatch event for achievement and progress quest
+        for p in participants_data:
+            u = p['user']
+            self.bot.dispatch("raid_participate", u.id)
+            res = await self.db.update_quest_progress(u.id, "raid_participate")
+            if res == "COMPLETED":
+                self.bot.dispatch("quest_completion", u.id)
+        
         battle_log = []
         turn = 0
-        original_participants = [p['user'] for p in participants_data]
+        original_participants_list = [p['user'] for p in participants_data]
         
         while boss_hp > 0 and participants_data and turn < 15:
             turn += 1
@@ -313,9 +485,9 @@ class Adventure(commands.Cog):
             await asyncio.sleep(2)
         
         if boss_hp <= 0:
-            reward = 2000 // len(original_participants)
-            await ctx.send(f"🎉 **VICTORY!** The Elder Dragon has been defeated! Each participant earned **{reward}** BFC 🔵🌹!")
-            for u in original_participants:
+            reward = 2000 // len(original_participants_list)
+            await ctx.send(f"🎉 **VICTORY!** The Elder Dragon has been defeated! Each participant earned **{reward}** RC <:rose_coin:1533598631612125397>!")
+            for u in original_participants_list:
                 await self.bot.update_balance(u.id, reward)
         else:
             await ctx.send("💀 **DEFEAT!** The boss was too strong. The raid failed.")

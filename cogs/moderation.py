@@ -29,7 +29,7 @@ class Moderation(commands.Cog):
             embed.add_field(name="Reason", value=reason)
             await self._send_dm(member, embed)
         except Exception as e:
-            await ctx.send(f"❌ Failed to timeout member: {e}", ephemeral=True)
+            await ctx.send(f"❌ Failed to timeout member: {e}")
 
     async def _do_mute(self, ctx, member: discord.Member, minutes: int = None, reason: str = "No reason provided"):
         if minutes and minutes > 40320:
@@ -46,7 +46,7 @@ class Moderation(commands.Cog):
                 await member.timeout(timedelta(minutes=minutes), reason=reason)
                 actions.append(f"timed out for {minutes} minutes")
             except Exception as e:
-                return await ctx.send(f"❌ Failed to timeout member: {e}", ephemeral=True)
+                return await ctx.send(f"❌ Failed to timeout member: {e}")
         
         # 2. Apply Mute Role if configured
         if mute_role:
@@ -56,13 +56,13 @@ class Moderation(commands.Cog):
             except Exception as e:
                 # If we already did timeout, we might still want to report this failure
                 if not actions:
-                    return await ctx.send(f"❌ Failed to add mute role: {e}", ephemeral=True)
+                    return await ctx.send(f"❌ Failed to add mute role: {e}")
                 actions.append(f"(failed to add mute role: {e})")
         
         if not actions:
             # Fallback to indefinite timeout (not possible in Discord, max 28 days)
             # If no minutes and no mute role, we should probably warn the user
-            return await ctx.send("❌ No duration provided and no mute role configured. Please provide a duration or set a mute role using `.set_mute_role`.", ephemeral=True)
+            return await ctx.send("❌ No duration provided and no mute role configured. Please provide a duration or set a mute role using `.set_mute_role`.")
 
         action_str = " and ".join(actions)
         await ctx.send(f"✅ Successfully muted {member.mention} ({action_str}). Reason: {reason}")
@@ -75,17 +75,17 @@ class Moderation(commands.Cog):
         embed.add_field(name="Reason", value=reason)
         await self._send_dm(member, embed)
 
-    @commands.hybrid_command(name="timeout", description="Timeout a member")
+    @commands.command(name="timeout", description="Timeout a member")
     @is_staff()
     async def timeout(self, ctx, member: discord.Member, minutes: int, reason: str = "No reason provided"):
         await self._do_timeout(ctx, member, minutes, reason)
 
-    @commands.hybrid_command(name="mute", description="Mute a member (uses role and/or timeout)", aliases=["m"])
+    @commands.command(name="mute", description="Mute a member (uses role and/or timeout)", aliases=["m"])
     @is_staff()
     async def mute(self, ctx, member: discord.Member, minutes: int = None, reason: str = "No reason provided"):
         await self._do_mute(ctx, member, minutes, reason)
 
-    @commands.hybrid_command(name="unmute", description="Unmute a member (removes role and timeout)", aliases=["um"])
+    @commands.command(name="unmute", description="Unmute a member (removes role and timeout)", aliases=["um"])
     @is_staff()
     async def unmute(self, ctx, member: discord.Member, reason: str = "Unmuted by moderator"):
         try:
@@ -119,9 +119,9 @@ class Moderation(commands.Cog):
             embed.add_field(name="Reason", value=reason)
             await self._send_dm(member, embed)
         except Exception as e:
-            await ctx.send(f"❌ Failed to unmute member: {e}", ephemeral=True)
+            await ctx.send(f"❌ Failed to unmute member: {e}")
 
-    @commands.hybrid_command(name="ban", description="Ban a member")
+    @commands.command(name="ban", description="Ban a member")
     @is_staff()
     @commands.bot_has_permissions(ban_members=True)
     async def ban(self, ctx, member: discord.Member, reason: str = "No reason provided"):
@@ -137,7 +137,7 @@ class Moderation(commands.Cog):
         except Exception as e:
             await ctx.send(f"❌ Failed to ban member: {e}", ephemeral=True)
 
-    @commands.hybrid_command(name="unban", description="Unban a user")
+    @commands.command(name="unban", description="Unban a user")
     @is_staff()
     @commands.bot_has_permissions(ban_members=True)
     async def unban(self, ctx, user: discord.User, reason: str = "No reason provided"):
@@ -154,9 +154,9 @@ class Moderation(commands.Cog):
             embed.description = f"You can rejoin the server using this link: {invite.url}"
             await self._send_dm(user, embed)
         except Exception as e:
-            await ctx.send(f"❌ Failed to unban member: {e}", ephemeral=True)
+            await ctx.send(f"❌ Failed to unban member: {e}")
 
-    @commands.hybrid_command(name="warn", description="Warn a member")
+    @commands.command(name="warn", description="Warn a member")
     @is_staff()
     async def warn(self, ctx, member: discord.Member, *, reason: str = "No reason provided"):
         try:
@@ -171,9 +171,9 @@ class Moderation(commands.Cog):
             embed.add_field(name="Total Warnings", value=str(len(warns)))
             await self._send_dm(member, embed)
         except Exception as e:
-            await ctx.send(f"❌ Failed to warn member: {e}", ephemeral=True)
+            await ctx.send(f"❌ Failed to warn member: {e}")
 
-    @commands.hybrid_command(name="warns", description="Check a member's warnings", aliases=["warnings"])
+    @commands.command(name="warns", description="Check a member's warnings", aliases=["warnings"])
     @is_staff()
     async def warns(self, ctx, member: discord.Member):
         try:
@@ -192,9 +192,9 @@ class Moderation(commands.Cog):
                 )
             await ctx.send(embed=embed)
         except Exception as e:
-            await ctx.send(f"❌ Failed to fetch warnings: {e}", ephemeral=True)
+            await ctx.send(f"❌ Failed to fetch warnings: {e}")
 
-    @commands.hybrid_command(name="removewarn", description="Remove a specific warning", aliases=["delwarn"])
+    @commands.command(name="removewarn", description="Remove a specific warning", aliases=["delwarn"])
     @is_staff()
     async def removewarn(self, ctx, warn_id: int):
         try:
@@ -212,9 +212,9 @@ class Moderation(commands.Cog):
                     embed.add_field(name="Warning ID", value=str(warn_id))
                     await self._send_dm(user, embed)
         except Exception as e:
-            await ctx.send(f"❌ Failed to remove warning: {e}", ephemeral=True)
+            await ctx.send(f"❌ Failed to remove warning: {e}")
 
-    @commands.hybrid_command(name="clearwarns", description="Clear all warnings for a member", aliases=["delwarns"])
+    @commands.command(name="clearwarns", description="Clear all warnings for a member", aliases=["delwarns"])
     @is_staff()
     async def clearwarns(self, ctx, member: discord.Member):
         try:
@@ -226,20 +226,20 @@ class Moderation(commands.Cog):
             embed = discord.Embed(title=f"✅ All your warnings have been cleared in {ctx.guild.name}", color=0x00ffff, timestamp=discord.utils.utcnow())
             await self._send_dm(member, embed)
         except Exception as e:
-            await ctx.send(f"❌ Failed to clear warnings: {e}", ephemeral=True)
+            await ctx.send(f"❌ Failed to clear warnings: {e}")
 
-    @commands.hybrid_command(name="clear", description="Clear messages")
+    @commands.command(name="clear", description="Clear messages")
     @is_staff()
     async def clear(self, ctx, amount: int = 5):
         await ctx.channel.purge(limit=amount + 1)
-        await ctx.send(f"Cleared {amount} messages.", ephemeral=True, delete_after=5)
+        await ctx.send(f"Cleared {amount} messages.", delete_after=5)
         await self.bot.log_action(ctx.guild, "Messages Cleared", f"{amount} messages were cleared in {ctx.channel.mention}.", color=0x00ffff, moderator=ctx.author)
 
-    @commands.hybrid_command(name="ping")
+    @commands.command(name="ping")
     async def ping(self, ctx):
-        await ctx.send(f"Pong! {round(self.bot.latency * 1000)}ms", ephemeral=True)
+        await ctx.send(f"Pong! {round(self.bot.latency * 1000)}ms")
 
-    @commands.hybrid_command(name="muted", description="List all muted/timed-out members")
+    @commands.command(name="muted", description="List all muted/timed-out members")
     @is_staff()
     async def muted(self, ctx):
         mute_role_id = await self.bot.db.get_mute_role(ctx.guild.id)
@@ -262,7 +262,7 @@ class Moderation(commands.Cog):
         embed = discord.Embed(title="🔇 Muted Members", description="\n".join(muted_members), color=0xffa500)
         await ctx.send(embed=embed)
 
-    @commands.hybrid_command(name="logs", description="View recent moderation logs")
+    @commands.command(name="logs", description="View recent moderation logs")
     @is_staff()
     async def logs(self, ctx, user: discord.User = None, limit: int = 10):
         try:
@@ -289,7 +289,7 @@ class Moderation(commands.Cog):
             embed = discord.Embed(title="📜 Moderation Logs", description="\n\n".join(logs), color=0x2b2d31)
             await ctx.send(embed=embed)
         except Exception as e:
-            await ctx.send(f"❌ Failed to fetch logs: {e}", ephemeral=True)
+            await ctx.send(f"❌ Failed to fetch logs: {e}")
 
 async def setup(bot):
     await bot.add_cog(Moderation(bot))

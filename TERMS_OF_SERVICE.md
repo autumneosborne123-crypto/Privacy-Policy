@@ -39,7 +39,7 @@ In no event shall the Bot owners be liable for any damages arising out of the us
 We may update these Terms from time to time. Continued use of the Bot after changes constitutes acceptance of the new Terms.
 
 ## 10. Contact
-If you have questions regarding these Terms, please join our support server: [Join FlowerBot Support](https://discord.gg/flowerbot)
+If you have questions regarding these Terms, please join our support server: [Join FlowerBot Support](https://discord.gg/mXtvjGpQmM)
 
 ---
 *FlowerBot is not affiliated with Discord Inc.*

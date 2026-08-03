@@ -79,7 +79,7 @@ class TicTacToeButton(discord.ui.Button['TicTacToeView']):
             if winner == view.X:
                 content = 'X won!'
                 # We don't easily have the member here for X/O without more state, 
-                # but for simplicity we can skip BFC for TicTacToe unless we track members.
+                # but for simplicity we can skip RC for TicTacToe unless we track members.
             elif winner == view.O:
                 content = 'O won!'
             else:
@@ -187,7 +187,7 @@ class TriviaView(discord.ui.View):
             
             if answer == self.correct_answer:
                 await self.ctx.bot.update_balance(self.ctx.author.id, 30)
-                await interaction.response.edit_message(content=f"✅ Correct! The answer was **{html.unescape(self.correct_answer)}**. You earned **30** Blue Flower Coins 🔵🌹!", view=self)
+                await interaction.response.edit_message(content=f"✅ Correct! The answer was **{html.unescape(self.correct_answer)}**. You earned **30** Rose Coins <:rose_coin:1533598631612125397>!", view=self)
             else:
                 await interaction.response.edit_message(content=f"❌ Wrong! The correct answer was **{html.unescape(self.correct_answer)}**.", view=self)
             self.stop()
@@ -335,7 +335,7 @@ class Fun(commands.Cog):
              (choice == "scissors" and bot_choice == "paper"): 
             res = "You win! 🎉"
             await self.bot.update_balance(ctx.author.id, 20)
-            res += " You earned **20** Blue Flower Coins 🔵🌹!"
+            res += " You earned **20** Rose Coins <:rose_coin:1533598631612125397>!"
         else: res = "I win! 🤖"
         await ctx.send(f"You chose **{choice}**, I chose **{bot_choice}**. {res}")
 
@@ -353,7 +353,7 @@ class Fun(commands.Cog):
         ans = random.randint(1, 10)
         if number == ans: 
             await self.bot.update_balance(ctx.author.id, 50)
-            await ctx.send(f"🎉 Correct! It was {ans}! You earned **50** Blue Flower Coins 🔵🌹!")
+            await ctx.send(f"🎉 Correct! It was {ans}! You earned **50** Rose Coins <:rose_coin:1533598631612125397>!")
         else: await ctx.send(f"❌ Wrong! It was {ans}.")
 
     @commands.hybrid_command(name="tictactoe", description="Play a game of Tic-Tac-Toe")
@@ -450,7 +450,7 @@ class Fun(commands.Cog):
                 
                 if "_" not in display:
                     await self.bot.update_balance(ctx.author.id, 100)
-                    return await ctx.send(f"🎉 You won! The word was **{word}**! You earned **100** Blue Flower Coins 🔵🌹!")
+                    return await ctx.send(f"🎉 You won! The word was **{word}**! You earned **100** Rose Coins <:rose_coin:1533598631612125397>!")
                 
             except asyncio.TimeoutError:
                 return await ctx.send(f"⏰ Time's up! The word was **{word}**.")
@@ -471,12 +471,12 @@ class Fun(commands.Cog):
             embed.description += "\n\n🎉 **JACKPOT!** You won big!"
             embed.color = 0xFFD700
             await self.bot.update_balance(ctx.author.id, 500)
-            embed.description += "\nEarned **500** Blue Flower Coins 🔵🌹!"
+            embed.description += "\nEarned **500** Rose Coins <:rose_coin:1533598631612125397>!"
         elif a == b or b == c or a == c:
             embed.description += "\n\n✨ **Nice!** You got two matches!"
             embed.color = 0x00FF00
             await self.bot.update_balance(ctx.author.id, 50)
-            embed.description += "\nEarned **50** Blue Flower Coins 🔵🌹!"
+            embed.description += "\nEarned **50** Rose Coins <:rose_coin:1533598631612125397>!"
         else:
             embed.description += "\n\n❌ No luck this time!"
             embed.color = 0xFF0000
@@ -512,7 +512,7 @@ class Fun(commands.Cog):
             await self.bot.wait_for("message", check=check, timeout=20.0)
             end = asyncio.get_event_loop().time()
             await self.bot.update_balance(ctx.author.id, 50)
-            await ctx.send(f"✅ Well done! You typed it in **{end-start:.2f}s**. You earned **50** Blue Flower Coins!")
+            await ctx.send(f"✅ Well done! You typed it in **{end-start:.2f}s**. You earned **50** Rose Coins!")
         except asyncio.TimeoutError:
             await ctx.send("⏰ Time's up! You took too long.")
 

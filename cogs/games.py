@@ -11,16 +11,19 @@ class Games(commands.Cog):
 
     @commands.hybrid_command(name="akinator", description="Play a game of Akinator")
     async def akinator(self, ctx):
+        await ctx.defer()
         game = games.Akinator()
         await game.start(ctx)
 
     @commands.hybrid_command(name="2048", description="Play a game of 2048")
     async def twenty48(self, ctx):
+        await ctx.defer()
         game = games.Twenty48()
         await game.start(ctx)
 
     @commands.hybrid_command(name="wordle", description="Play a game of Wordle")
     async def wordle(self, ctx):
+        await ctx.defer()
         game = games.Wordle()
         await game.start(ctx)
 
@@ -28,6 +31,7 @@ class Games(commands.Cog):
     async def chess(self, ctx, member: discord.Member):
         if member == ctx.author:
             return await ctx.send("You cannot play against yourself!", ephemeral=True)
+        await ctx.defer()
         game = games.Chess(white=ctx.author, black=member)
         await game.start(ctx)
 
@@ -35,26 +39,31 @@ class Games(commands.Cog):
     async def battleship(self, ctx, member: discord.Member):
         if member == ctx.author:
             return await ctx.send("You cannot play against yourself!", ephemeral=True)
+        await ctx.defer()
         game = games.BattleShip(player1=ctx.author, player2=member)
         await game.start(ctx)
 
     @commands.hybrid_command(name="countryguesser", description="Guess the country by its flag")
     async def countryguesser(self, ctx):
+        await ctx.defer()
         game = games.CountryGuesser()
         await game.start(ctx)
 
     @commands.hybrid_command(name="reaction", description="Test your reaction time")
     async def reaction(self, ctx):
+        await ctx.defer()
         game = games.ReactionGame()
         await game.start(ctx)
 
     @commands.hybrid_command(name="typeracer", description="Type racer game")
     async def typeracer(self, ctx):
+        await ctx.defer()
         game = games.TypeRacer()
         await game.start(ctx)
 
     @commands.hybrid_command(name="character", aliases=["wa", "ha", "rollchar"], description="Roll for a random anime character (Mudae-style)")
     async def character(self, ctx):
+        await ctx.defer()
         # Anilist has ~170,000 characters. We pick a random page.
         # We use a large range to cover the "over 140,000" requirement.
         random_page = random.randint(1, 150000) 

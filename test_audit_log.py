@@ -88,11 +88,11 @@ async def test_audit_log():
     amount = 200
     await bot.update_balance(user_a.id, -amount)
     await bot.update_balance(user_b.id, amount)
-    await bot.log_action(guild, "BFC Transfer", f"**{user_a}** paid **{amount}** BFC to **{user_b}**.", color=0x3498db, moderator=user_a, user=user_b)
+    await bot.log_action(guild, "RC Transfer", f"**{user_a}** paid **{amount}** RC to **{user_b}**.", color=0x3498db, moderator=user_a, user=user_b)
     
     assert len(log_channel.sent_messages) == 2
     transfer_log = log_channel.sent_messages[1]["embed"]
-    assert transfer_log.title == "BFC Transfer"
+    assert transfer_log.title == "RC Transfer"
     assert "200" in transfer_log.description
     print("Trading log simulation: PASSED")
 

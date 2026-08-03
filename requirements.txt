@@ -10,5 +10,3 @@ pinterest-dl
 lyricsgenius
 beautifulsoup4
 syncedlyrics
-aiohttp-jinja2
-jinja2

@@ -41,32 +41,32 @@ class Premium(commands.Cog):
                 "• Higher Animal Rarity Chances 🐾\n"
                 "• 24/7 Music Mode (Server) 🕒\n"
                 "• Exclusive Audio Filters (Server) 🎵\n\n"
+                "**Pricing:**\n"
+                "• 1 Month: **$5.00**\n"
+                "• 3 Months: **$12.00**\n"
+                "• Lifetime: **$35.00**\n\n"
                 "**Get Premium:**\n"
                 "Send payment via [**CashApp ($Amaryyy5)**](https://cash.app/$Amaryyy5)\n"
-                "Use `.premium buy` for pricing and instructions."
+                f"**Crucial:** Include your User ID (`{ctx.author.id}`) in the payment note!\n"
+                "Use `.premium buy` for more detailed instructions."
             )
             
             await ctx.send(embed=embed)
 
     @premium.command(name="buy", description="Get instructions to purchase Premium")
     async def buy_premium(self, ctx):
-        dashboard_url = "http://flowerbot.gg:5000"
-        try:
-            from cogs.dashboard import DASHBOARD_URL
-            dashboard_url = DASHBOARD_URL
-        except: pass
-
         embed = discord.Embed(title="💎 Buy flowerbot.gg Premium", color=0x00d632)
         embed.description = (
-            f"You can purchase Premium via CashApp or our [**Website**]({dashboard_url})! Benefits are applied globally to your account.\n\n"
-            "**Prices:**\n"
-            "• 1 Month: $5.00\n"
-            "• 3 Months: $12.00\n"
-            "• Lifetime: $35.00\n\n"
-            "**How to pay via CashApp:**\n"
-            "1. Send the amount to: [**$Amaryyy5**](https://cash.app/$Amaryyy5)\n"
-            f"2. **Crucial:** Include your User ID (`{ctx.author.id}`) in the payment note!\n"
-            "3. Benefits will be applied within 24 hours of verification."
+            f"You can purchase Premium via CashApp! Benefits are applied globally to your account.\n\n"
+            "**💎 Premium Pricing:**\n"
+            "• **1 Month:** $5.00\n"
+            "• **3 Months:** $12.00 (Save $3!)\n"
+            "• **Lifetime:** $35.00 (Best Value!)\n\n"
+            "**📲 How to pay via CashApp:**\n"
+            "1. Send the chosen amount to: [**$Amaryyy5**](https://cash.app/$Amaryyy5)\n"
+            f"2. **⚠️ CRUCIAL:** Include your User ID: `{ctx.author.id}` in the payment note!\n"
+            "3. Benefits will be applied within 24 hours of verification.\n\n"
+            "*Need help? Join our [Support Server](https://discord.gg/mXtvjGpQmM)*"
         )
         embed.set_footer(text="Thank you for supporting flowerbot.gg!")
         await ctx.send(embed=embed)

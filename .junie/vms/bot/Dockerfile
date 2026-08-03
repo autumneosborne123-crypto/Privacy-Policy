@@ -17,5 +17,3 @@ RUN pip3 install --no-cache-dir -r requirements.txt
 # Copy the rest of the files
 COPY . .
 
-# Expose port for dashboard
-EXPOSE 5000

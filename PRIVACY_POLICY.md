@@ -2,7 +2,7 @@
 
 **Last Updated: August 2, 2026**
 
-This Privacy Policy describes how FlowerBot ("the Bot", "we", "us", or "our") collects, uses, and shares information when you use the Bot in a Discord server or interact with our dashboard at [flowerbot.gg](http://flowerbot.gg:5000).
+This Privacy Policy describes how FlowerBot ("the Bot", "we", "us", or "our") collects, uses, and shares information when you use the Bot in a Discord server.
 
 By adding FlowerBot to your server or using its features, you agree to the collection and use of information in accordance with this policy.
 
@@ -12,7 +12,7 @@ We collect minimal data necessary to provide and maintain the Bot's functionalit
 
 ### A. Personal Data (via Discord)
 *   **Discord User IDs:** A unique identifier provided by Discord to track your leveling progress (XP), economy balances (Flower Coins), achievement history, and music playlists.
-*   **Username and Avatar:** Used for display purposes within the Bot's commands and dashboard. We do not store historical usernames or avatars; we fetch the current ones via the Discord API.
+*   **Username and Avatar:** Used for display purposes within the Bot's commands. We do not store historical usernames or avatars; we fetch the current ones via the Discord API.
 
 ### B. Server (Guild) Data
 *   **Guild IDs:** Unique identifiers for servers where the Bot is present to store server-specific configurations.
@@ -29,7 +29,6 @@ We collect minimal data necessary to provide and maintain the Bot's functionalit
 We use the collected information for the following purposes:
 *   **Functionality:** To operate leveling, economy, adventure (animals/inventory), and music features.
 *   **Moderation:** To provide server administrators with tools to manage their community (e.g., warning systems).
-*   **Dashboard:** To allow authorized server administrators to manage Bot settings via our web interface.
 *   **Support:** To troubleshoot technical issues and respond to user inquiries.
 
 ## 3. Data Storage and Retention
@@ -62,7 +61,7 @@ To exercise these rights, please join our support server.
 
 If you have any questions about this Privacy Policy or wish to request data deletion, please contact us via our **Discord Support Server**:
 
-**[Join FlowerBot Support](https://discord.gg/flowerbot)**
+**[Join FlowerBot Support](https://discord.gg/mXtvjGpQmM)**
 
 ---
 *FlowerBot is not affiliated with Discord Inc.*

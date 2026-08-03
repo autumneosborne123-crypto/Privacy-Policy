@@ -119,7 +119,7 @@ class ReactionRoles(commands.Cog):
             
             roles_channel = self.bot.get_channel(int(roles_channel_id))
             channel_mention = roles_channel.mention if roles_channel else f"<#{roles_channel_id}>"
-            await ctx.send(f"❌ This command can only be used in {channel_mention}.", ephemeral=True)
+            await ctx.send(f"❌ This command can only be used in {channel_mention}.")
             return False
         return True
 
@@ -138,7 +138,7 @@ class ReactionRoles(commands.Cog):
             return False
         return True
 
-    @commands.hybrid_command(name="roles", description="List all roles in the server")
+    @commands.command(name="roles", description="List all roles in the server")
     async def roles_list(self, ctx):
         """List all roles in the server."""
         roles = sorted(ctx.guild.roles, key=lambda x: x.position, reverse=True)
@@ -157,9 +157,8 @@ class ReactionRoles(commands.Cog):
             
         await ctx.send(embed=embed)
 
-    @commands.hybrid_group(name="role", description="Role management commands")
+    @commands.group(name="role", description="Role management commands")
     @commands.has_permissions(manage_roles=True)
-    @app_commands.default_permissions(manage_roles=True)
     async def role_group(self, ctx):
         """Role management commands."""
         await ctx.send_help(ctx.command)
@@ -208,9 +207,8 @@ class ReactionRoles(commands.Cog):
         
         await ctx.send(embed=embed)
 
-    @commands.hybrid_group(name="reactionrole", aliases=["rr"], invoke_without_command=True)
+    @commands.group(name="reactionrole", aliases=["rr"], invoke_without_command=True)
     @commands.has_permissions(manage_roles=True)
-    @app_commands.default_permissions(manage_roles=True)
     async def reactionrole(self, ctx):
         """Reaction Role management commands."""
         await ctx.send_help(ctx.command)
@@ -220,7 +218,7 @@ class ReactionRoles(commands.Cog):
     async def rr_make(self, ctx):
         """Interactive professional reaction role setup."""
         view = RRSetupView(self.bot, ctx.author)
-        await ctx.send("Starting interactive reaction role setup...", view=view, ephemeral=True)
+        await ctx.send("Starting interactive reaction role setup...", view=view)
 
     @reactionrole.command(name="remove", description="Remove a reaction role from a message")
     @commands.has_permissions(manage_roles=True)

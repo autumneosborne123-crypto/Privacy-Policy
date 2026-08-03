@@ -19,6 +19,7 @@ class TestSecurity(unittest.IsolatedAsyncioTestCase):
         self.bot.user.id = 999
         self.bot.whitelisted_bots = [422087909634736160]
         self.bot.get_log_channel = AsyncMock(return_value=None)
+        self.bot.log_action = AsyncMock()
         self.security_cog = Security(self.bot)
 
     async def test_is_suspicious_bot_true(self):

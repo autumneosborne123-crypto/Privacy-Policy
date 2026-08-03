@@ -16,9 +16,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the rest of the application code
 COPY . .
 
-# Expose port for dashboard
-EXPOSE 5000
-
 # Ensure levels.db is in the right place or mounted
 # The bot creates it if missing, but for persistence it should be a volume
 

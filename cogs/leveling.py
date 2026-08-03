@@ -233,6 +233,11 @@ class Leveling(commands.Cog):
             target_channel = None
             if level_channel_id:
                 target_channel = self.bot.get_channel(level_channel_id)
+                if not target_channel:
+                    try:
+                        target_channel = await self.bot.fetch_channel(level_channel_id)
+                    except:
+                        pass
             
             if not target_channel:
                 target_channel = channel
@@ -299,7 +304,20 @@ class Leveling(commands.Cog):
             # Just increment msg count if on cooldown for XP
             await self.db.update_user_data(user_id, data["xp"], data["level"], data["last_xp_time"], data["message_count"] + 1, data["voice_minutes"])
 
+    def is_leveling_channel():
+        async def predicate(ctx):
+            if not ctx.guild: return True
+            db_channel_id = await ctx.bot.db.get_guild_setting(ctx.guild.id, "leveling_channel_id", int)
+            if not db_channel_id or ctx.channel.id == db_channel_id:
+                return True
+            
+            chan = ctx.bot.get_channel(db_channel_id)
+            await ctx.send(f"❌ Leveling commands are restricted to {chan.mention if chan else f'<#{db_channel_id}>'}.", ephemeral=True)
+            return False
+        return commands.check(predicate)
+
     @commands.hybrid_command(name="leaderboard", description="Show the server leaderboard", aliases=["top", "lb"])
+    @is_leveling_channel()
     @app_commands.describe(sort="Sort the leaderboard by (xp, messages, voice)", type="Show a statistical chart (messages, levels, joins, leaves)")
     async def leaderboard(self, ctx: commands.Context, sort: str = "xp", type: str = None):
         logging.info(f"Leaderboard command invoked by {ctx.author} with sort={sort}, type={type}")
@@ -383,6 +401,7 @@ class Leveling(commands.Cog):
             await ctx.send(f"❌ An error occurred: {e}")
 
     @commands.hybrid_command(name="rank", description="Check your or another member's rank", aliases=["u", "me", "stats"])
+    @is_leveling_channel()
     @app_commands.describe(member="The member to check (defaults to you)", chart="Show 7-day message chart")
     async def rank(self, ctx: commands.Context, member: discord.Member = None, chart: bool = False):
         member = member or ctx.author
@@ -575,6 +594,19 @@ class Leveling(commands.Cog):
         if not channels: return await ctx.send("No channels ignored.")
         mentions = [f"<#{cid}>" for cid in channels]
         await ctx.send(f"🚫 **Ignored Channels:**\n" + "\n".join(mentions))
+
+    @commands.hybrid_command(name="levelupchannel", description="Set the channel for level-up notifications")
+    @is_admin()
+    @app_commands.describe(channel="The channel to send level-up messages to (leave empty to reset)")
+    async def levelupchannel(self, ctx: commands.Context, channel: discord.TextChannel = None):
+        if channel:
+            await self.db.set_guild_setting(ctx.guild.id, "level_up_channel_id", str(channel.id))
+            await ctx.send(f"✅ Level-up notifications will now be sent to {channel.mention}.", ephemeral=True)
+            await self.bot.log_action(ctx.guild, "📈 Level-Up Channel Set", f"**Channel:** {channel.mention}", color=0x3498db, moderator=ctx.author)
+        else:
+            await self.db.set_guild_setting(ctx.guild.id, "level_up_channel_id", None)
+            await ctx.send("✅ Level-up notifications will now be sent in the channel where the user leveled up.", ephemeral=True)
+            await self.bot.log_action(ctx.guild, "📈 Level-Up Channel Reset", "Notifications will now be sent in the original channel.", color=0xe74c3c, moderator=ctx.author)
 
 async def setup(bot):
     await bot.add_cog(Leveling(bot))

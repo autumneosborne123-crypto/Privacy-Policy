@@ -53,10 +53,13 @@ class Media(commands.Cog):
     async def before_cleanup_task(self):
         await self.bot.wait_until_ready()
 
-    @tasks.loop(minutes=2)
+    @tasks.loop(minutes=60)
     async def media_loop(self):
         try:
             feeds = await self.bot.db.get_media_feeds()
+            # Randomize order to avoid hitting same guilds at same time every loop
+            random.shuffle(feeds)
+            
             for feed_id, guild_id, channel_id, category in feeds:
                 channel = self.bot.get_channel(int(channel_id))
                 if not channel: continue
@@ -71,19 +74,27 @@ class Media(commands.Cog):
                         query += " animated gif"
 
                 gif_only = "gif" in category.lower()
-                urls = await self.fetch_images(query, num=30, gif_only=gif_only)
+                urls = await self.fetch_images(query, num=10, gif_only=gif_only)
                 
                 if urls:
                     url = await self.pick_suitable_image(urls)
                     if url:
                         embed = discord.Embed(color=0xffb6c1)
                         embed.set_image(url=url)
-                        embed.set_footer(text=f"Category: {category} | Every 2 mins Feed")
+                        embed.set_footer(text=f"Category: {category} | Hourly Feed")
                         try:
                             await channel.send(embed=embed)
+                        except discord.HTTPException as e:
+                            if e.status == 429:
+                                logging.warning(f"Rate limit hit in media loop (Channel: {channel_id}), sleeping 2 minutes...")
+                                await asyncio.sleep(120)
+                            else:
+                                logging.error(f"Failed to send media feed to {channel_id}: {e}")
                         except Exception as e:
                             logging.error(f"Failed to send media feed to {channel_id}: {e}")
-                await asyncio.sleep(1) # Small delay between different feeds
+                
+                # Significant delay between different feeds to avoid global rate limit
+                await asyncio.sleep(random.randint(60, 120)) 
         except Exception as e:
             logging.error(f"Error in media loop: {e}")
 

@@ -29,9 +29,14 @@ class DiscordLogHandler(logging.Handler):
         if not self.bot.is_ready():
             return
 
-        # Skip spammy media logs
+        # Skip spammy or rate-limit logs to avoid recursion
         msg = record.getMessage()
-        if any(term in msg for term in ["Scraped", "search queries", "Successfully scraped"]):
+        skip_terms = [
+            "Scraped", "search queries", "Successfully scraped", "rate limited", 
+            "429 Too Many Requests", "You are being blocked", "rate-limits",
+            "Unknown interaction", "NotFound: 404 Not Found"
+        ]
+        if any(term in msg for term in skip_terms):
             return
         
         # Only WARNING and above for technical logs in Discord to avoid spam
@@ -70,7 +75,7 @@ class HelpSelect(discord.ui.Select):
         # Sort cogs by name
         sorted_cogs = sorted(bot.cogs.items())
         for cog_name, cog in sorted_cogs:
-            if cog_name in ["System", "Config", "Dashboard"]:
+            if cog_name in ["System", "Config"]:
                 emoji = "🛠️"
             elif cog_name == "Leveling": emoji = "📈"
             elif cog_name == "Music": emoji = "🎵"
@@ -133,18 +138,10 @@ class HelpView(discord.ui.View):
         self.add_item(HelpSelect(bot, prefix))
         
     def create_home_embed(self):
-        # Try to get the real dashboard URL from the cog if possible
-        dashboard_url = "http://flowerbot.gg:5000"
-        try:
-            from cogs.dashboard import DASHBOARD_URL
-            dashboard_url = DASHBOARD_URL
-        except ImportError:
-            pass
-
         embed = discord.Embed(title="🌸 flowerbot.gg Help Menu", color=0x2b2d31)
         embed.description = (
             "Welcome to the **flowerbot.gg** help menu! Use the selection menu below to browse commands by category.\n\n"
-            f"**Links:** [flowerbot.gg]({dashboard_url}) | [Privacy](https://github.com/autumneosborne123-crypto/Privacy-Policy/blob/main/PRIVACY_POLICY.md) | [Terms](https://github.com/autumneosborne123-crypto/Privacy-Policy/blob/main/TERMS_OF_SERVICE.md) | [Support](https://discord.gg/flowerbot)\n\n"
+            "**Links:** [Privacy](https://github.com/autumneosborne123-crypto/Privacy-Policy/blob/main/PRIVACY_POLICY.md) | [Terms](https://github.com/autumneosborne123-crypto/Privacy-Policy/blob/main/TERMS_OF_SERVICE.md) | [Support](https://discord.gg/mXtvjGpQmM)\n\n"
             "💡 *Tip: Use `.help <command>` for specific command details.*"
         )
         embed.set_thumbnail(url=self.bot.user.display_avatar.url if self.bot.user.display_avatar else None)
@@ -173,8 +170,8 @@ class FlowerBot(commands.Bot):
         if not ctx.guild: return True
         if not ctx.cog: return True
         
-        # Dashboard, System and Config cogs should always be accessible
-        if ctx.cog.qualified_name in ["Dashboard", "System", "Config"]: return True
+        # System and Config cogs should always be accessible
+        if ctx.cog.qualified_name in ["System", "Config"]: return True
         
         settings = await self.db.get_all_guild_settings(ctx.guild.id)
         disabled_raw = settings.get('disabled_cogs')
@@ -195,7 +192,7 @@ class FlowerBot(commands.Bot):
         await self.db.init()
         
         # Load Cogs
-        cogs = ['cogs.leveling', 'cogs.music', 'cogs.security', 'cogs.fun', 'cogs.moderation', 'cogs.config', 'cogs.system', 'cogs.games', 'cogs.media', 'cogs.economy', 'cogs.adventure', 'cogs.achievements', 'cogs.logging', 'cogs.roles', 'cogs.tools', 'cogs.dashboard', 'cogs.premium']
+        cogs = ['cogs.leveling', 'cogs.music', 'cogs.security', 'cogs.fun', 'cogs.moderation', 'cogs.config', 'cogs.system', 'cogs.games', 'cogs.media', 'cogs.economy', 'cogs.adventure', 'cogs.achievements', 'cogs.logging', 'cogs.roles', 'cogs.tools', 'cogs.premium']
         for cog in cogs:
             try:
                 await self.load_extension(cog)

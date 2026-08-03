@@ -8,6 +8,9 @@ class Database:
     def __init__(self, db_path):
         self.db_path = db_path
 
+    def get_db(self):
+        return aiosqlite.connect(self.db_path)
+
     async def init(self):
         async with aiosqlite.connect(self.db_path) as db:
             await db.execute('''CREATE TABLE IF NOT EXISTS levels
@@ -54,6 +57,7 @@ class Database:
                               goodbye_message TEXT,
                               level_up_channel_id TEXT,
                               music_channel_id TEXT,
+                              leveling_channel_id TEXT,
                               disabled_cogs TEXT,
                               premium_until REAL DEFAULT 0)''')
             await db.execute('''CREATE TABLE IF NOT EXISTS reaction_roles
@@ -105,6 +109,7 @@ class Database:
                 'goodbye_message': 'TEXT',
                 'level_up_channel_id': 'TEXT',
                 'music_channel_id': 'TEXT',
+                'leveling_channel_id': 'TEXT',
                 'disabled_cogs': 'TEXT',
                 'auto_role_id': 'TEXT',
                 'anti_spam_enabled': 'BOOLEAN DEFAULT 1',

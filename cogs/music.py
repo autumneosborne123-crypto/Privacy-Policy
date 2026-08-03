@@ -36,7 +36,7 @@ YTDL_OPTIONS = {
 }
 FFMPEG_OPTIONS = {
     'options': '-vn',
-    'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -probesize 10M -analyzeduration 0'
+    'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -probesize 32k -analyzeduration 500000'
 }
 
 FILTERS = {
@@ -52,6 +52,17 @@ class YTDLSource(discord.PCMVolumeTransformer):
         self.data = data
         self.title = data.get('title')
         self.url = data.get('url')
+        self._read_count = 0
+
+    def read(self):
+        data = super().read()
+        if data:
+            self._read_count += 1
+        return data
+
+    @property
+    def elapsed(self):
+        return self._read_count * 0.02
 
     @classmethod
     async def from_url(cls, url, *, data=None, loop=None, stream=False, audio_filter=None):
@@ -145,14 +156,18 @@ class Music(commands.Cog):
 
     async def get_autoplay_song(self, last_track):
         try:
-            search_query = f"ytsearch5:related to {last_track['title']} {last_track.get('uploader', '')}"
+            # Better search query for recommendations
+            search_query = f"ytsearch10:{last_track['title']} {last_track.get('uploader', '')} similar songs"
             def extract():
                 with yt_dlp.YoutubeDL(YTDL_OPTIONS) as ydl:
                     return ydl.extract_info(search_query, download=False)
             data = await self.bot.loop.run_in_executor(None, extract)
             if 'entries' in data and data['entries']:
-                # Pick a random one from top 5 to avoid infinite loops of same song
-                return random.choice(data['entries'])
+                # Filter out the same song
+                filtered = [e for e in data['entries'] if e.get('id') != last_track.get('id')]
+                if filtered:
+                    return random.choice(filtered[:5])
+                return random.choice(data['entries'][:5])
         except Exception as e:
             logging.error(f"Autoplay search error: {e}")
         return None
@@ -191,14 +206,19 @@ class Music(commands.Cog):
                 player = await YTDLSource.from_url(data['webpage_url'], stream=True, audio_filter=audio_filter)
                 
             player.volume = self.volumes.get(guild_id, 0.5)
-            ctx.voice_client.play(player, after=lambda e: asyncio.run_coroutine_threadsafe(self.play_next(ctx), self.bot.loop))
+            ctx.voice_client.play(player, after=lambda e: self.bot.loop.call_soon_threadsafe(self.bot.loop.create_task, self.play_next_with_delay(ctx)))
             self.start_times[guild_id] = time.time()
             self.total_paused_durations[guild_id] = 0
             await ctx.send(f"🎶 **Now playing:** {data['title']}")
         except Exception as e:
             logging.error(f"Music error in {ctx.guild.name}: {e}")
             await ctx.send(f"❌ Error playing song: {e}")
+            await asyncio.sleep(3)
             await self.play_next(ctx)
+
+    async def play_next_with_delay(self, ctx):
+        await asyncio.sleep(1)
+        await self.play_next(ctx)
 
     async def music_play_logic(self, ctx, query: str):
         if not shutil.which("ffmpeg"):
@@ -340,9 +360,19 @@ class Music(commands.Cog):
         return "▬" * filled + "🔘" + "▬" * (length - filled)
 
     def get_elapsed(self, guild_id, voice_client):
-        if not voice_client or (not voice_client.is_playing() and not voice_client.is_paused()):
+        if not voice_client or not voice_client.source:
             return 0
         
+        # Priority 1: Accurate sample-based counting
+        source = voice_client.source
+        if hasattr(source, 'elapsed'):
+            return source.elapsed
+        
+        # Priority 2: Wrapped source check (PCMVolumeTransformer)
+        if hasattr(source, 'original') and hasattr(source.original, 'elapsed'):
+            return source.original.elapsed
+            
+        # Fallback: Time-based estimation
         start_time = self.start_times.get(guild_id, time.time())
         total_paused = self.total_paused_durations.get(guild_id, 0)
         
@@ -464,7 +494,7 @@ class Music(commands.Cog):
                         except discord.HTTPException:
                             pass # Rate limited or other issue
                 
-                await asyncio.sleep(0.5)
+                await asyncio.sleep(1)
         except asyncio.CancelledError:
             pass
         except Exception as e:
@@ -500,12 +530,7 @@ class Music(commands.Cog):
     async def toggle_247(self, ctx):
         is_premium = await self.bot.db.is_guild_premium(ctx.guild.id)
         if not is_premium:
-            dashboard_url = "http://flowerbot.gg:5000"
-            try:
-                from cogs.dashboard import DASHBOARD_URL
-                dashboard_url = DASHBOARD_URL
-            except: pass
-            return await ctx.send(f"❌ **24/7 Mode** is a **Server Premium** feature! Visit {dashboard_url} to upgrade.", ephemeral=True)
+            return await ctx.send(f"❌ **24/7 Mode** is a **Server Premium** feature ($5.00/mo)!", ephemeral=True)
         
         current = await self.bot.db.get_guild_setting(ctx.guild.id, "premium_247")
         new_val = 0 if current else 1
@@ -519,12 +544,7 @@ class Music(commands.Cog):
     async def apply_filter(self, ctx, filter_name: str = None):
         is_premium = await self.bot.db.is_guild_premium(ctx.guild.id)
         if not is_premium:
-            dashboard_url = "http://flowerbot.gg:5000"
-            try:
-                from cogs.dashboard import DASHBOARD_URL
-                dashboard_url = DASHBOARD_URL
-            except: pass
-            return await ctx.send(f"❌ **Audio Filters** are a **Server Premium** feature! Visit {dashboard_url} to upgrade.", ephemeral=True)
+            return await ctx.send(f"❌ **Audio Filters** are a **Server Premium** feature ($5.00/mo)!", ephemeral=True)
 
         if not filter_name:
             available = ", ".join([f"`{f}`" for f in FILTERS.keys()])

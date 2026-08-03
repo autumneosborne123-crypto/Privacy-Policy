@@ -9,10 +9,11 @@ class Achievements(commands.Cog):
         self.achievements_list = {
             "first_catch": {"name": "First Catch", "description": "Catch your very first animal!"},
             "battle_winner": {"name": "Battle Winner", "description": "Win your first animal battle."},
-            "rich_user": {"name": "Rising Star", "description": "Reach 1,000 Blue Flower Coins 🔵🌹."},
-            "medalist": {"name": "Blue Flower Medalist", "description": "Complete 5 quests."},
+            "rich_user": {"name": "Rising Star", "description": "Reach 1,000 Rose Coins <:rose_coin:1533598631612125397>."},
+            "medalist": {"name": "Rose Medalist", "description": "Complete 5 quests."},
             "trader": {"name": "Merchant", "description": "Complete your first trade."},
-            "highwayman": {"name": "Highwayman", "description": "Successfully rob another user."}
+            "highwayman": {"name": "Highwayman", "description": "Successfully rob another user."},
+            "raider": {"name": "Dragon Slayer", "description": "Participate in your first raid."}
         }
 
     @commands.hybrid_command(name="achievements", description="View your earned achievements")
@@ -44,6 +45,10 @@ class Achievements(commands.Cog):
     @commands.Cog.listener()
     async def on_rob_success(self, user_id):
         await self.db.add_achievement(user_id, "highwayman")
+
+    @commands.Cog.listener()
+    async def on_raid_participate(self, user_id):
+        await self.db.add_achievement(user_id, "raider")
 
     @commands.Cog.listener()
     async def on_quest_completion(self, user_id):
