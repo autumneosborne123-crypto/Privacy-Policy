@@ -4,12 +4,12 @@ import time
 import logging
 
 class AFK(commands.Cog):
-    """AFK system similar to Dyno bot."""
+    """AFK system similar to Nekotina bot."""
     def __init__(self, bot):
         self.bot = bot
 
     @commands.hybrid_command(name="afk", description="Set your AFK status")
-    async def afk(self, ctx, *, reason: str = "AFK"):
+    async def afk(self, ctx, *, reason: str = "I am currently AFK"):
         """Set your AFK status so others know you're away."""
         await self.bot.db.set_afk(ctx.author.id, reason, time.time())
         
@@ -23,11 +23,7 @@ class AFK(commands.Cog):
         except Exception as e:
             logging.debug(f"Could not change nickname for AFK: {e}")
             
-        embed = discord.Embed(
-            description=f"✅ {ctx.author.mention}, I've set your AFK: **{reason}**", 
-            color=0x2b2d31
-        )
-        await ctx.send(embed=embed)
+        await ctx.send(f"✅ {ctx.author.mention}, I've set your AFK: **{reason}**")
 
     @commands.Cog.listener()
     async def on_message(self, message):
@@ -39,7 +35,7 @@ class AFK(commands.Cog):
         if afk_data:
             reason, timestamp = afk_data
             # Ignore if the message was the AFK command itself (approx < 2 seconds)
-            if time.time() - timestamp > 2:
+            if time.time() - timestamp > 5:
                 await self.bot.db.remove_afk(message.author.id)
                 
                 # Try to remove AFK tag from nickname
@@ -49,16 +45,8 @@ class AFK(commands.Cog):
                 except:
                     pass
                 
-                duration = time.time() - timestamp
-                hours, rem = divmod(int(duration), 3600)
-                minutes, seconds = divmod(rem, 60)
-                
-                time_str = []
-                if hours: time_str.append(f"{hours}h")
-                if minutes: time_str.append(f"{minutes}m")
-                if seconds or not time_str: time_str.append(f"{seconds}s")
-                
-                welcome_msg = f"Welcome back {message.author.mention}, I've removed your AFK. You were gone for **{' '.join(time_str)}**."
+                duration = self.format_duration(time.time() - timestamp)
+                welcome_msg = f"Welcome back {message.author.mention}! You were gone for **{duration}**."
                 await message.channel.send(welcome_msg, delete_after=10)
 
         # 2. Check if anyone mentioned is AFK
@@ -70,20 +58,23 @@ class AFK(commands.Cog):
                 afk_data = await self.bot.db.get_afk(mention.id)
                 if afk_data:
                     reason, timestamp = afk_data
-                    duration = time.time() - timestamp
-                    
-                    hours, rem = divmod(int(duration), 3600)
-                    minutes, seconds = divmod(rem, 60)
-                    
-                    time_str = []
-                    if hours: time_str.append(f"{hours}h")
-                    if minutes: time_str.append(f"{minutes}m")
-                    if seconds or not time_str: time_str.append(f"{seconds}s")
+                    duration = self.format_duration(time.time() - timestamp)
                     
                     await message.channel.send(
-                        f"☁️ **{mention.display_name}** is AFK: {reason} ({' '.join(time_str)} ago)", 
-                        delete_after=10
+                        f"☁️ **{mention.display_name}** is AFK: {reason} - <t:{int(timestamp)}:R>", 
+                        delete_after=15
                     )
+
+    def format_duration(self, seconds):
+        hours, rem = divmod(int(seconds), 3600)
+        minutes, seconds = divmod(rem, 60)
+        
+        parts = []
+        if hours: parts.append(f"{hours}h")
+        if minutes: parts.append(f"{minutes}m")
+        if seconds or not parts: parts.append(f"{seconds}s")
+        
+        return " ".join(parts)
 
 async def setup(bot):
     await bot.add_cog(AFK(bot))

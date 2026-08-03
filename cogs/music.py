@@ -315,7 +315,8 @@ class Music(commands.Cog):
                     del self.lyrics_tasks[guild_id]
                 
                 # Use a small delay to ensure audio has actually buffered and started
-                self.bot.loop.call_later(2, lambda: self.bot.loop.create_task(self.lyrics.callback(self, ctx)))
+                # Pass a clean task to avoid interaction timeout issues
+                self.bot.loop.call_later(2, lambda: self.bot.loop.create_task(self._internal_lyrics_start(ctx)))
         except Exception as e:
             logging.error(f"Music error in {ctx.guild.name}: {e}")
             await ctx.send(f"❌ Error playing song: {e}")
@@ -825,17 +826,10 @@ class Music(commands.Cog):
         
         # If enabled and playing, start them now
         if new_val and ctx.voice_client and ctx.voice_client.is_playing() and guild_id not in self.lyrics_tasks:
-            await self.lyrics.callback(self, ctx)
+            await self._internal_lyrics_start(ctx)
 
-    @music.command(name="lyrics", description="Show lyrics for the current song (karaoke style)")
-    async def lyrics(self, ctx, song_name: str = None, offset: float = 0.0):
-        # Handle interaction deferring safely
-        if ctx.interaction:
-            try:
-                await ctx.defer()
-            except:
-                pass
-        
+    async def _internal_lyrics_start(self, ctx, song_name: str = None, offset: float = 0.0):
+        """Internal helper to start lyrics without interaction timeout issues."""
         guild_id = ctx.guild.id
         self.lyrics_offsets[guild_id] = offset
         
@@ -847,7 +841,10 @@ class Music(commands.Cog):
         if not song_name:
             data = self.current_tracks.get(guild_id)
             if not data or not ctx.voice_client:
-                return await ctx.send("❌ Nothing playing and no song name provided.")
+                # Use channel.send if interaction might be expired
+                try: await ctx.send("❌ Nothing playing and no song name provided.")
+                except: await ctx.channel.send("❌ Nothing playing and no song name provided.")
+                return
             song_name = data['title']
             artist = data.get('uploader') or data.get('artist')
             follow = True
@@ -859,18 +856,24 @@ class Music(commands.Cog):
             parsed_lyrics = await self._fetch_synced_lyrics(song_name, artist)
             
             if parsed_lyrics:
-                await ctx.send(f"🎤 **Synced lyrics found!** Starting karaoke display...", delete_after=5)
+                try: await ctx.send(f"🎤 **Synced lyrics found!** Starting karaoke display...", delete_after=5)
+                except: await ctx.channel.send(f"🎤 **Synced lyrics found!** Starting karaoke display...", delete_after=5)
+                
                 task = self.bot.loop.create_task(self.show_synced_lyrics(ctx, parsed_lyrics, follow=follow))
                 self.lyrics_tasks[guild_id] = task
                 return
 
-            await ctx.send("ℹ️ **Synced lyrics not found.** Falling back to static lyrics.", delete_after=5)
+            try: await ctx.send("ℹ️ **Synced lyrics not found.** Falling back to static lyrics.", delete_after=5)
+            except: await ctx.channel.send("ℹ️ **Synced lyrics not found.** Falling back to static lyrics.", delete_after=5)
+            
             # Fallback to standard Genius lyrics
             search_query = re.sub(r'\(.*?\)|\[.*?\]', '', song_name)
             search_query = re.sub(r'Official Video|Music Video|Lyric Video|Lyrics', '', search_query, flags=re.I).strip()
             song = await self.bot.loop.run_in_executor(None, lambda: self.genius.search_song(search_query))
             if not song:
-                return await ctx.send(f"❌ Could not find lyrics for **{song_name}**.")
+                try: await ctx.send(f"❌ Could not find lyrics for **{song_name}**.")
+                except: await ctx.channel.send(f"❌ Could not find lyrics for **{song_name}**.")
+                return
             
             lyrics = song.lyrics
             lyrics = re.sub(r'^\d+Embed$', '', lyrics, flags=re.MULTILINE)
@@ -884,10 +887,21 @@ class Music(commands.Cog):
             if song.song_art_image_url:
                 embed.set_thumbnail(url=song.song_art_image_url)
             
-            await ctx.send(embed=embed)
+            try: await ctx.send(embed=embed)
+            except: await ctx.channel.send(embed=embed)
         except Exception as e:
             logging.error(f"Lyrics error: {e}")
-            await ctx.send("❌ An error occurred while fetching lyrics.")
+            try: await ctx.send("❌ An error occurred while fetching lyrics.")
+            except: await ctx.channel.send("❌ An error occurred while fetching lyrics.")
+
+    @music.command(name="lyrics", description="Show lyrics for the current song (karaoke style)")
+    async def lyrics(self, ctx, song_name: str = None, offset: float = 0.0):
+        # Handle interaction deferring safely if it's a fresh command
+        if ctx.interaction and not ctx.interaction.response.is_done():
+            try: await ctx.defer()
+            except: pass
+        
+        await self._internal_lyrics_start(ctx, song_name, offset)
 
     @music.group(name="playlist", description="Manage your playlists")
     async def playlist(self, ctx):
