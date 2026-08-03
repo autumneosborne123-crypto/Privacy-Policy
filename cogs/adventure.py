@@ -28,10 +28,10 @@ class Adventure(commands.Cog):
         for a in animals:
             # id, animal_type, nickname, level, ...
             a_id, a_type, nick, lvl = a[0], a[1], a[2], a[3]
-            name = self.animals_data[a_type]['name']
+            name = self.animals_data.get(a_type, {"name": a_type})["name"]
             label = f"{nick} ({name}) Lvl {lvl}"
             if current.lower() in label.lower():
-                choices.append(app_commands.Choice(name=label, value=str(a_id)))
+                choices.append(app_commands.Choice(name=label, value=nick))
         return choices[:25]
 
     @commands.hybrid_command(name="catch", description="Try to catch a wild animal")
@@ -122,7 +122,7 @@ class Adventure(commands.Cog):
             # id, animal_type, nickname, level, xp, hp, max_hp, attack, defense, speed, rarity
             a_id, a_type, nick, lvl, xp, hp, mhp, atk, df, spd, rarity = a
             name = self.animals_data[a_type]['name']
-            embed.add_field(name=f"[{a_id}] {nick} ({name})", value=f"Rank: **{rarity}** | Lvl: {lvl} | HP: {hp}/{mhp} | Atk: {atk} | Def: {df}", inline=True)
+            embed.add_field(name=f"{nick} ({name})", value=f"Rank: **{rarity}** | Lvl: {lvl} | HP: {hp}/{mhp} | Atk: {atk} | Def: {df}", inline=True)
         
         await ctx.send(embed=embed)
 
@@ -232,44 +232,54 @@ class Adventure(commands.Cog):
             await self.db.update_animal(attacker[0], {"hp": max(0, a_hp), "xp": new_xp, "level": new_lvl})
 
     @commands.hybrid_command(name="heal", description="Heal your animal using medicine")
-    @app_commands.autocomplete(animal_id=animal_autocomplete)
-    async def heal(self, ctx, animal_id: str):
+    @app_commands.autocomplete(animal=animal_autocomplete)
+    async def heal(self, ctx, animal: str):
         await ctx.defer()
-        animal_id = int(animal_id)
+        animal = str(animal)
+        
+        user_animals = await self.db.get_user_animals(ctx.author.id)
+        target_animal = next((a for a in user_animals if a[2].lower() == animal.lower()), None)
+        if not target_animal and animal.isdigit():
+            target_animal = next((a for a in user_animals if str(a[0]) == animal), None)
+            
+        if not target_animal: return await ctx.send(f"❌ You don't have an animal named '**{animal}**'.")
+        
+        animal_id = target_animal[0]
         inventory = await self.db.get_inventory(ctx.author.id)
         if not any(item[0] == 'medicine' for item in inventory):
             return await ctx.send("❌ You don't have any medicine! Buy some in the `.shop`.", ephemeral=True)
         
-        animals = await self.db.get_user_animals(ctx.author.id)
-        animal = next((a for a in animals if a[0] == animal_id), None)
-        if not animal: return await ctx.send("❌ Animal not found.")
-        
-        if animal[5] >= animal[6]: return await ctx.send("❌ This animal is already at full health.")
+        if target_animal[5] >= target_animal[6]: return await ctx.send("❌ This animal is already at full HP.")
         
         await self.db.remove_item(ctx.author.id, 'medicine', 1)
-        new_hp = min(animal[6], animal[5] + 50)
+        new_hp = min(target_animal[6], target_animal[5] + 50)
         await self.db.update_animal(animal_id, {"hp": new_hp})
-        await ctx.send(f"💊 You used medicine on **{animal[2]}**. HP is now {new_hp}/{animal[6]}.")
+        await ctx.send(f"💊 You used medicine on **{target_animal[2]}**. HP is now {new_hp}/{target_animal[6]}.")
 
     @commands.hybrid_command(name="train", description="Train your animal to gain XP")
     @commands.cooldown(1, 30, commands.BucketType.user)
-    @app_commands.autocomplete(animal_id=animal_autocomplete)
-    async def train(self, ctx, animal_id: str):
+    @app_commands.autocomplete(animal=animal_autocomplete)
+    async def train(self, ctx, animal: str):
         await ctx.defer()
-        animal_id = int(animal_id)
-        animals = await self.db.get_user_animals(ctx.author.id)
-        animal = next((a for a in animals if a[0] == animal_id), None)
-        if not animal: return await ctx.send("❌ Animal not found.")
+        animal = str(animal)
         
-        if animal[5] <= 0: return await ctx.send("❌ This animal is fainted! Heal it first.")
+        user_animals = await self.db.get_user_animals(ctx.author.id)
+        target_animal = next((a for a in user_animals if a[2].lower() == animal.lower()), None)
+        if not target_animal and animal.isdigit():
+            target_animal = next((a for a in user_animals if str(a[0]) == animal), None)
+            
+        if not target_animal: return await ctx.send(f"❌ You don't have an animal named '**{animal}**'.")
+        
+        animal_id = target_animal[0]
+        if target_animal[5] <= 0: return await ctx.send("❌ This animal is fainted! Heal it first.")
         
         # Training takes a bit of HP
         hp_cost = random.randint(5, 15)
-        new_hp = max(0, animal[5] - hp_cost)
+        new_hp = max(0, target_animal[5] - hp_cost)
         
         xp_gain = random.randint(20, 50)
-        new_xp = animal[4] + xp_gain
-        new_lvl = animal[3]
+        new_xp = target_animal[4] + xp_gain
+        new_lvl = target_animal[3]
         leveled_up = False
         while new_xp >= 100:
             new_xp -= 100
@@ -278,7 +288,7 @@ class Adventure(commands.Cog):
             
         await self.db.update_animal(animal_id, {"hp": new_hp, "xp": new_xp, "level": new_lvl})
         
-        msg = f"💪 **{animal[2]}** trained hard and gained **{xp_gain}** XP! (Remaining HP: {new_hp}/{animal[6]})"
+        msg = f"💪 **{target_animal[2]}** trained hard and gained **{xp_gain}** XP! (Remaining HP: {new_hp}/{target_animal[6]})"
         if leveled_up:
             msg += f"\n✨ **Leveled up to {new_lvl}!**"
             # Progress quest
@@ -332,29 +342,43 @@ class Adventure(commands.Cog):
             self.bot.dispatch("quest_completion", ctx.author.id)
 
     @commands.hybrid_command(name="revive", description="Revive a fainted animal using a Revive item")
-    @app_commands.autocomplete(animal_id=animal_autocomplete)
-    async def revive(self, ctx, animal_id: str):
+    @app_commands.autocomplete(animal=animal_autocomplete)
+    async def revive(self, ctx, animal: str):
         await ctx.defer()
-        animal_id = int(animal_id)
+        animal = str(animal)
+        
+        user_animals = await self.db.get_user_animals(ctx.author.id)
+        target_animal = next((a for a in user_animals if a[2].lower() == animal.lower()), None)
+        if not target_animal and animal.isdigit():
+            target_animal = next((a for a in user_animals if str(a[0]) == animal), None)
+            
+        if not target_animal: return await ctx.send(f"❌ You don't have an animal named '**{animal}**'.")
+        
+        animal_id = target_animal[0]
         inventory = await self.db.get_inventory(ctx.author.id)
         if not any(item[0] == 'revive' for item in inventory):
             return await ctx.send("❌ You don't have any Revive! Buy some in the `.shop`.", ephemeral=True)
         
-        animals = await self.db.get_user_animals(ctx.author.id)
-        animal = next((a for a in animals if a[0] == animal_id), None)
-        if not animal: return await ctx.send("❌ Animal not found.")
-        
-        if animal[5] > 0: return await ctx.send("❌ This animal is not fainted.")
+        if target_animal[5] > 0: return await ctx.send("❌ This animal is not fainted.")
         
         await self.db.remove_item(ctx.author.id, 'revive', 1, rank='Rare')
-        await self.db.update_animal(animal_id, {"hp": animal[6]})
-        await ctx.send(f"👼 You used Revive on **{animal[2]}**! It's back to full HP.")
+        await self.db.update_animal(animal_id, {"hp": target_animal[6]})
+        await ctx.send(f"👼 You used Revive on **{target_animal[2]}**! It's back to full HP.")
 
     @commands.hybrid_command(name="boost", description="Permanently boost an animal's stats using Protein Shake or Iron Shield")
-    @app_commands.autocomplete(animal_id=animal_autocomplete)
-    async def boost(self, ctx, animal_id: str, item_name: str):
+    @app_commands.autocomplete(animal=animal_autocomplete)
+    async def boost(self, ctx, animal: str, item_name: str):
         await ctx.defer()
-        animal_id = int(animal_id)
+        animal = str(animal)
+        
+        user_animals = await self.db.get_user_animals(ctx.author.id)
+        target_animal = next((a for a in user_animals if a[2].lower() == animal.lower()), None)
+        if not target_animal and animal.isdigit():
+            target_animal = next((a for a in user_animals if str(a[0]) == animal), None)
+            
+        if not target_animal: return await ctx.send(f"❌ You don't have an animal named '**{animal}**'.")
+        
+        animal_id = target_animal[0]
         item_name = item_name.lower().replace(" ", "_")
         if item_name not in ["protein_shake", "iron_shield"]:
             return await ctx.send("❌ Invalid boost item. Use `protein_shake` or `iron_shield`.", ephemeral=True)
@@ -363,20 +387,16 @@ class Adventure(commands.Cog):
         if not any(item[0] == item_name for item in inventory):
             return await ctx.send(f"❌ You don't have a **{item_name.replace('_', ' ').title()}**!", ephemeral=True)
         
-        animals = await self.db.get_user_animals(ctx.author.id)
-        animal = next((a for a in animals if a[0] == animal_id), None)
-        if not animal: return await ctx.send("❌ Animal not found.")
-        
         await self.db.remove_item(ctx.author.id, item_name, 1, rank='Rare')
         
         if item_name == "protein_shake":
-            new_val = animal[7] + 3
+            new_val = target_animal[7] + 3
             await self.db.update_animal(animal_id, {"attack": new_val})
-            await ctx.send(f"💪 **{animal[2]}** drank a Protein Shake! Attack increased to **{new_val}**!")
+            await ctx.send(f"💪 **{target_animal[2]}** drank a Protein Shake! Attack increased to **{new_val}**!")
         else:
-            new_val = animal[8] + 3
+            new_val = target_animal[8] + 3
             await self.db.update_animal(animal_id, {"defense": new_val})
-            await ctx.send(f"🛡️ **{animal[2]}** used an Iron Shield! Defense increased to **{new_val}**!")
+            await ctx.send(f"🛡️ **{target_animal[2]}** used an Iron Shield! Defense increased to **{new_val}**!")
 
     @commands.hybrid_command(name="quest", description="View your current quests")
     async def quest(self, ctx):
@@ -493,20 +513,78 @@ class Adventure(commands.Cog):
             await ctx.send("💀 **DEFEAT!** The boss was too strong. The raid failed.")
 
     @commands.hybrid_command(name="gift_animal", description="Gift an animal to another user")
-    async def gift_animal(self, ctx, member: discord.Member, animal_id: int):
+    @app_commands.autocomplete(animal=animal_autocomplete)
+    async def gift_animal(self, ctx, member: discord.Member, animal: str):
         if member == ctx.author: return await ctx.send("❌ You cannot gift an animal to yourself.", ephemeral=True)
+        animal = str(animal)
         
-        animals = await self.db.get_user_animals(ctx.author.id)
-        animal = next((a for a in animals if a[0] == animal_id), None)
-        if not animal:
-            return await ctx.send("❌ Animal not found in your collection.", ephemeral=True)
+        user_animals = await self.db.get_user_animals(ctx.author.id)
+        target_animal = next((a for a in user_animals if a[2].lower() == animal.lower()), None)
+        if not target_animal and animal.isdigit():
+            target_animal = next((a for a in user_animals if str(a[0]) == animal), None)
+            
+        if not target_animal:
+            return await ctx.send(f"❌ You don't have an animal named '**{animal}**' in your collection.", ephemeral=True)
         
+        animal_id = target_animal[0]
         await self.db.update_animal(animal_id, {"user_id": str(member.id)})
-        await ctx.send(f"🎁 You gifted **{animal[2]}** to {member.mention}!")
-        await self.bot.log_action(ctx.guild, "Animal Gifted", f"**{ctx.author}** gifted **{animal[2]}** (ID: {animal_id}) to **{member}**.", color=0x9b59b6, moderator=ctx.author, user=member)
+        await ctx.send(f"🎁 You gifted **{target_animal[2]}** to {member.mention}!")
+        await self.bot.log_action(ctx.guild, "Animal Gifted", f"**{ctx.author}** gifted **{target_animal[2]}** (ID: {animal_id}) to **{member}**.", color=0x9b59b6, moderator=ctx.author, user=member)
         
         # Achievement for trading
         self.bot.dispatch("trade_complete", ctx.author.id)
+
+    @commands.hybrid_command(name="trade_animal", description="Trade an animal with another user")
+    @app_commands.autocomplete(animal=animal_autocomplete)
+    async def trade_animal(self, ctx, member: discord.Member, animal: str):
+        if member == ctx.author: return await ctx.send("❌ You cannot trade with yourself.", ephemeral=True)
+        animal = str(animal)
+        
+        user_animals = await self.db.get_user_animals(ctx.author.id)
+        target_animal = next((a for a in user_animals if a[2].lower() == animal.lower()), None)
+        if not target_animal and animal.isdigit():
+            target_animal = next((a for a in user_animals if str(a[0]) == animal), None)
+            
+        if not target_animal:
+            return await ctx.send(f"❌ You don't have an animal named '**{animal}**'.", ephemeral=True)
+        
+        await ctx.send(f"🤝 {member.mention}, {ctx.author.mention} wants to trade their **{target_animal[2]}** to you! Type `accept` to confirm.")
+        
+        def check(m):
+            return m.author == member and m.channel == ctx.channel and m.content.lower() == 'accept'
+        
+        try:
+            await self.bot.wait_for('message', check=check, timeout=30.0)
+        except asyncio.TimeoutError:
+            return await ctx.send("⏰ Trade request timed out.")
+            
+        # Re-check ownership
+        user_animals = await self.db.get_user_animals(ctx.author.id)
+        still_owns = any(a[0] == target_animal[0] for a in user_animals)
+        if not still_owns:
+            return await ctx.send("❌ The animal is no longer in the owner's collection.")
+
+        await self.db.update_animal(target_animal[0], {"user_id": str(member.id)})
+        await ctx.send(f"🤝 Trade complete! {member.mention} now owns **{target_animal[2]}**!")
+        self.bot.dispatch("trade_complete", ctx.author.id)
+
+    @commands.hybrid_command(name="nickname", description="Give a nickname to your animal")
+    @app_commands.autocomplete(animal=animal_autocomplete)
+    async def nickname(self, ctx, animal: str, *, new_name: str):
+        if len(new_name) > 32:
+            return await ctx.send("❌ Nickname too long.", ephemeral=True)
+        animal = str(animal)
+        
+        user_animals = await self.db.get_user_animals(ctx.author.id)
+        target_animal = next((a for a in user_animals if a[2].lower() == animal.lower()), None)
+        if not target_animal and animal.isdigit():
+            target_animal = next((a for a in user_animals if str(a[0]) == animal), None)
+            
+        if not target_animal:
+            return await ctx.send(f"❌ Animal not found.")
+            
+        await self.db.update_animal(target_animal[0], {"nickname": new_name})
+        await ctx.send(f"✅ Your animal is now named **{new_name}**!")
 
 async def setup(bot):
     await bot.add_cog(Adventure(bot))
