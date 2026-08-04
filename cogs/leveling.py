@@ -316,12 +316,12 @@ class Leveling(commands.Cog):
             return False
         return commands.check(predicate)
 
-    @commands.hybrid_command(name="leaderboard", description="Show the server leaderboard", aliases=["top", "lb"])
+    @commands.command(name="s?u", description="Show the server leaderboard", aliases=["leaderboard", "top", "lb"])
     @is_leveling_channel()
-    @app_commands.describe(sort="Sort the leaderboard by (xp, messages, voice)", type="Show a statistical chart (messages, levels, joins, leaves)")
     async def leaderboard(self, ctx: commands.Context, sort: str = "xp", type: str = None):
         logging.info(f"Leaderboard command invoked by {ctx.author} with sort={sort}, type={type}")
-        await ctx.defer()
+        # Use a task to handle defer-like behavior in prefix commands if needed, 
+        # but here we can just process. Prefix commands don't have a 3s limit like interactions.
 
         if type:
             type = type.lower()

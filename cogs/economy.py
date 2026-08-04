@@ -38,7 +38,7 @@ class Economy(commands.Cog):
     async def daily(self, ctx):
         await ctx.defer()
         data = await self.db.get_economy_data(ctx.author.id)
-        last_daily = data['last_daily']
+        last_daily = data.get('last_daily', 0)
         current_time = time.time()
         
         if current_time - last_daily < 86400:
@@ -48,7 +48,7 @@ class Economy(commands.Cog):
             msg = f"⏳ You've already claimed your daily reward. Try again in **{hours}h {minutes}m**."
             if not await self.db.is_user_premium(ctx.author.id):
                 msg += "\n💡 *Tip: Premium members ($5.00/mo) get 2x Daily Coins!*"
-            return await ctx.send(msg, ephemeral=True)
+            return await ctx.send(msg)
         
         amount = random.randint(200, 500)
         is_premium = await self.db.is_user_premium(ctx.author.id)
