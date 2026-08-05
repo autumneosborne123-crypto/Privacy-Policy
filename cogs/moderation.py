@@ -17,7 +17,7 @@ class Moderation(commands.Cog):
 
     async def _do_timeout(self, ctx, member: discord.Member, minutes: int, reason: str):
         if minutes > 40320: # 28 days
-            return await ctx.send("❌ Timeout duration cannot exceed 28 days (40,320 minutes).", ephemeral=True)
+            return await ctx.send("❌ Timeout duration cannot exceed 28 days (40,320 minutes).")
         try:
             await member.timeout(timedelta(minutes=minutes), reason=reason)
             await ctx.send(f"✅ Successfully timed out {member.mention} for {minutes} minutes. Reason: {reason}")
@@ -33,7 +33,7 @@ class Moderation(commands.Cog):
 
     async def _do_mute(self, ctx, member: discord.Member, minutes: int = None, reason: str = "No reason provided"):
         if minutes and minutes > 40320:
-            return await ctx.send("❌ Mute duration (timeout) cannot exceed 28 days (40,320 minutes).", ephemeral=True)
+            return await ctx.send("❌ Mute duration (timeout) cannot exceed 28 days (40,320 minutes).")
         
         mute_role_id = await self.bot.db.get_mute_role(ctx.guild.id)
         mute_role = ctx.guild.get_role(mute_role_id) if mute_role_id else None
@@ -125,6 +125,11 @@ class Moderation(commands.Cog):
     @is_staff()
     @commands.bot_has_permissions(ban_members=True)
     async def ban(self, ctx, member: discord.Member, reason: str = "No reason provided"):
+        if ctx.guild.me.top_role <= member.top_role:
+            return await ctx.send("❌ I cannot ban this member because their role is higher than or equal to mine.")
+        if ctx.author.top_role <= member.top_role and ctx.author != ctx.guild.owner:
+            return await ctx.send("❌ You cannot ban this member because their role is higher than or equal to yours.")
+
         try:
             # DM Notification BEFORE ban
             embed = discord.Embed(title=f"🔨 You have been banned from {ctx.guild.name}", color=0xff0000, timestamp=discord.utils.utcnow())
@@ -135,7 +140,28 @@ class Moderation(commands.Cog):
             await ctx.send(f"✅ Successfully banned {member.name}. Reason: {reason}")
             await self.bot.log_action(ctx.guild, "Member Ban", f"{member.name} was banned.\n**Reason:** {reason}", color=0xff0000, moderator=ctx.author, user=member)
         except Exception as e:
-            await ctx.send(f"❌ Failed to ban member: {e}", ephemeral=True)
+            await ctx.send(f"❌ Failed to ban member: {e}")
+
+    @commands.command(name="kick", description="Kick a member")
+    @is_staff()
+    @commands.bot_has_permissions(kick_members=True)
+    async def kick(self, ctx, member: discord.Member, reason: str = "No reason provided"):
+        if ctx.guild.me.top_role <= member.top_role:
+            return await ctx.send("❌ I cannot kick this member because their role is higher than or equal to mine.")
+        if ctx.author.top_role <= member.top_role and ctx.author != ctx.guild.owner:
+            return await ctx.send("❌ You cannot kick this member because their role is higher than or equal to yours.")
+
+        try:
+            # DM Notification BEFORE kick
+            embed = discord.Embed(title=f"👢 You have been kicked from {ctx.guild.name}", color=0xffa500, timestamp=discord.utils.utcnow())
+            embed.add_field(name="Reason", value=reason)
+            await self._send_dm(member, embed)
+            
+            await member.kick(reason=reason)
+            await ctx.send(f"✅ Successfully kicked {member.name}. Reason: {reason}")
+            await self.bot.log_action(ctx.guild, "Member Kick", f"{member.name} was kicked.\n**Reason:** {reason}", color=0xffa500, moderator=ctx.author, user=member)
+        except Exception as e:
+            await ctx.send(f"❌ Failed to kick member: {e}")
 
     @commands.command(name="unban", description="Unban a user")
     @is_staff()

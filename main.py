@@ -34,7 +34,8 @@ class DiscordLogHandler(logging.Handler):
         skip_terms = [
             "Scraped", "search queries", "Successfully scraped", "rate limited", 
             "429 Too Many Requests", "You are being blocked", "rate-limits",
-            "Unknown interaction", "NotFound: 404 Not Found"
+            "Unknown interaction", "NotFound: 404 Not Found",
+            "Failed to send log to channel"
         ]
         if any(term in msg for term in skip_terms):
             return
@@ -58,6 +59,11 @@ class DiscordLogHandler(logging.Handler):
         for guild in self.bot.guilds:
             channel = await self.bot.get_log_channel(guild)
             if channel:
+                # Permission check for technical logs
+                permissions = channel.permissions_for(guild.me)
+                if not (permissions.view_channel and permissions.send_messages and permissions.embed_links):
+                    continue
+                    
                 try:
                     embed = discord.Embed(title="🤖 Bot Technical Log", description=f"```\n{message[:1900]}\n```", color=color, timestamp=discord.utils.utcnow())
                     await channel.send(embed=embed)
@@ -159,7 +165,7 @@ class FlowerBot(commands.Bot):
         intents.message_content = True
         intents.members = True
         intents.voice_states = True
-        super().__init__(command_prefix=['.'], intents=intents, help_command=None)
+        super().__init__(command_prefix=['.', 's?'], intents=intents, help_command=None)
         
         self.db = Database(DB_FILE)
         self.config = Config(CONFIG_FILE)
@@ -224,6 +230,11 @@ class FlowerBot(commands.Bot):
         channel = await self.get_log_channel(guild)
         if not channel: return
         
+        # Check for view, send and embed permissions to avoid 403 errors in logs
+        permissions = channel.permissions_for(guild.me)
+        if not (permissions.view_channel and permissions.send_messages and permissions.embed_links):
+            return
+
         embed = discord.Embed(title=title, description=description, color=color, timestamp=discord.utils.utcnow())
         if moderator:
             embed.add_field(name="Moderator", value=f"{moderator} ({moderator.id})", inline=True)

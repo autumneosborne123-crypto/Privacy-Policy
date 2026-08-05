@@ -45,7 +45,11 @@ class TestRealDBAdventure(unittest.IsolatedAsyncioTestCase):
         
         # Check if success or escape message was sent
         args, kwargs = ctx.send.call_args
-        self.assertTrue("Success" in args[0] or "escaped" in args[0])
+        if "embed" in kwargs:
+            embed = kwargs["embed"]
+            self.assertTrue("Success" in embed.title or "Escaped" in embed.title)
+        else:
+            self.assertTrue("Success" in args[0] or "escaped" in args[0])
         
         # 4. Check animals list
         ctx.send.reset_mock()

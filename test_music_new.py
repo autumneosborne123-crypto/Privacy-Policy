@@ -22,6 +22,7 @@ class TestMusicCommands(unittest.IsolatedAsyncioTestCase):
     def mock_context(self):
         mock_ctx = AsyncMock()
         mock_ctx.bot = self.bot
+        mock_ctx.interaction.response.is_done = MagicMock(return_value=False)
         mock_ctx.guild.id = 123
         mock_ctx.channel.name = 'music' # Pass is_music_channel check
         return mock_ctx

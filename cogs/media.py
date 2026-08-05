@@ -64,6 +64,11 @@ class Media(commands.Cog):
                 channel = self.bot.get_channel(int(channel_id))
                 if not channel: continue
                 
+                # Check permissions before attempting to send media to avoid 403 Forbidden spam
+                permissions = channel.permissions_for(channel.guild.me)
+                if not (permissions.send_messages and permissions.embed_links):
+                    continue
+
                 query = self.queries.get(category.lower(), f"{category} aesthetic")
                 
                 # Special handling for banners to include variety of styles

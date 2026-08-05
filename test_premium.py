@@ -73,7 +73,8 @@ class TestPremiumFeatures(unittest.IsolatedAsyncioTestCase):
         await self.economy_cog.rob.callback(self.economy_cog, mock_ctx, mock_member)
         self.assertIn("⏳ This command is on cooldown. Try again in **29m 59s**.", mock_ctx.send.call_args[0][0])
         self.assertIn("Premium members ($5.00/mo)", mock_ctx.send.call_args[0][0])
-        self.assertEqual(mock_ctx.send.call_args[1].get('ephemeral'), True)
+        # No longer ephemeral after defer()
+        self.assertIsNone(mock_ctx.send.call_args[1].get('ephemeral'))
         
         mock_ctx.send.reset_mock()
         

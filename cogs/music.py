@@ -35,7 +35,7 @@ YTDL_OPTIONS = {
     }
 }
 FFMPEG_OPTIONS = {
-    'options': '-vn',
+    'options': '-vn -loglevel panic',
     'before_options': '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -probesize 1M -analyzeduration 1M -user_agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"'
 }
 
@@ -647,7 +647,7 @@ class Music(commands.Cog):
                         except discord.HTTPException:
                             pass # Rate limited or other issue
                 
-                await asyncio.sleep(0.5) # Faster refresh for perfect sync
+                await asyncio.sleep(1.0) # Refresh for sync without hitting rate limits as hard
         except asyncio.CancelledError:
             pass
         except Exception as e:
@@ -910,6 +910,7 @@ class Music(commands.Cog):
 
     @playlist.command(name="save", description="Save the current queue as a playlist")
     async def playlist_save(self, ctx, *, name: str):
+        if ctx.interaction: await ctx.defer()
         queue = self.get_queue(ctx.guild.id)
         current = self.current_tracks.get(ctx.guild.id)
         
@@ -921,13 +922,22 @@ class Music(commands.Cog):
             return await ctx.send("❌ The queue is empty.")
         
         # We only save titles and URLs to keep it small
-        saved_songs = [{"title": s['title'], "webpage_url": s['webpage_url']} for s in all_songs]
+        saved_songs = []
+        for s in all_songs:
+            title = s.get('title', 'Unknown')
+            url = s.get('webpage_url') or s.get('url')
+            if url:
+                saved_songs.append({"title": title, "webpage_url": url})
         
+        if not saved_songs:
+            return await ctx.send("❌ No valid songs found to save.")
+            
         await self.bot.db.save_playlist(ctx.author.id, name, saved_songs)
         await ctx.send(f"✅ Playlist **{name}** saved with {len(saved_songs)} songs.")
 
     @playlist.command(name="load", description="Load a saved playlist")
     async def playlist_load(self, ctx, *, name: str):
+        if ctx.interaction: await ctx.defer()
         songs = await self.bot.db.get_playlist(ctx.author.id, name)
         if not songs:
             return await ctx.send(f"❌ Playlist **{name}** not found.")
@@ -936,7 +946,15 @@ class Music(commands.Cog):
             return await ctx.send("❌ You must be in a voice channel!")
         
         if not ctx.voice_client:
-            await ctx.author.voice.channel.connect()
+            try:
+                await ctx.author.voice.channel.connect(timeout=20, reconnect=True)
+            except Exception as e:
+                return await ctx.send(f"❌ Failed to connect to voice: {e}")
+        elif ctx.voice_client.channel != ctx.author.voice.channel:
+            try:
+                await ctx.voice_client.move_to(ctx.author.voice.channel)
+            except Exception as e:
+                return await ctx.send(f"❌ Failed to move to your voice channel: {e}")
         
         queue = self.get_queue(ctx.guild.id)
         queue.extend(songs)
@@ -948,6 +966,7 @@ class Music(commands.Cog):
 
     @playlist.command(name="list", description="List your saved playlists")
     async def playlist_list(self, ctx):
+        if ctx.interaction: await ctx.defer()
         playlists = await self.bot.db.get_playlists(ctx.author.id)
         if not playlists:
             return await ctx.send("❌ You have no saved playlists.")
@@ -957,6 +976,7 @@ class Music(commands.Cog):
 
     @playlist.command(name="delete", description="Delete a saved playlist")
     async def playlist_delete(self, ctx, *, name: str):
+        if ctx.interaction: await ctx.defer()
         playlists = await self.bot.db.get_playlists(ctx.author.id)
         if name not in playlists:
             return await ctx.send(f"❌ Playlist **{name}** not found.")

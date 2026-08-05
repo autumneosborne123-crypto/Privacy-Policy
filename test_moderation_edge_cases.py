@@ -14,23 +14,34 @@ class MockPermissions:
         self.ban_members = ban_members
 
 class MockRole:
-    def __init__(self, name, id=None):
+    def __init__(self, name, id=None, position=0):
         self.name = name
         self.id = id or hash(name)
         self.mention = f"<@&{self.id}>"
+        self.position = position
     def __eq__(self, other):
         return isinstance(other, MockRole) and self.id == other.id
+    def __lt__(self, other):
+        if not isinstance(other, MockRole): return NotImplemented
+        return self.position < other.position
+    def __le__(self, other):
+        if not isinstance(other, MockRole): return NotImplemented
+        return self.position <= other.position
 
 class MockMember:
     def __init__(self, id, name, roles=None, administrator=False):
         self.id = id
         self.name = name
         self.mention = f"<@{id}>"
-        self.roles = roles or []
+        self.roles = roles or [MockRole("@everyone", position=0)]
         self.guild_permissions = MockPermissions(administrator=administrator)
         self.timed_out_until = None
         self.display_avatar = MagicMock()
         self.display_avatar.url = "http://example.com/avatar.png"
+
+    @property
+    def top_role(self):
+        return max(self.roles)
 
     async def timeout(self, until, reason=None):
         self.timed_out_until = until
@@ -69,8 +80,10 @@ class TestModerationEdgeCases(unittest.IsolatedAsyncioTestCase):
         self.guild.id = 123
         self.guild.name = "Test Guild"
         self.guild.members = []
+        self.guild.owner = MockMember(0, "Owner", roles=[MockRole("Owner", position=100)])
+        self.guild.me = MockMember(99, "Bot", roles=[MockRole("Bot", position=50)])
         
-        self.author = MockMember(1, "Staff", roles=[MockRole("admin")], administrator=True)
+        self.author = MockMember(1, "Staff", roles=[MockRole("admin", position=60)], administrator=True)
         self.target = MockMember(2, "User")
         self.guild.members.append(self.target)
         
@@ -143,12 +156,10 @@ class TestModerationEdgeCases(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(result)
 
     async def test_ban_already_banned(self):
-        # Setup: target.ban raises discord.Forbidden or similar if already banned? 
-        # Actually discord.py member.ban just sends the request.
-        # Let's mock failure
+        # Setup: target.ban raises discord.Forbidden or similar
         self.target.ban = AsyncMock(side_effect=Exception("Already banned"))
         await self.cog.ban.callback(self.cog, self.ctx, self.target, reason="Testing failure")
-        self.ctx.send.assert_called_with("❌ Failed to ban member: Already banned", ephemeral=True)
+        self.ctx.send.assert_called_with("❌ Failed to ban member: Already banned")
 
 if __name__ == "__main__":
     unittest.main()

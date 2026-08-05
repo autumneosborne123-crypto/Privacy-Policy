@@ -67,13 +67,13 @@ class Economy(commands.Cog):
     async def pay(self, ctx, member: discord.Member, amount: int):
         await ctx.defer()
         if amount <= 0:
-            return await ctx.send("❌ Amount must be positive.", ephemeral=True)
+            return await ctx.send("❌ Amount must be positive.")
         if member == ctx.author:
-            return await ctx.send("❌ You cannot pay yourself.", ephemeral=True)
+            return await ctx.send("❌ You cannot pay yourself.")
         
         balance = await self.db.get_balance(ctx.author.id)
         if balance < amount:
-            return await ctx.send("❌ You don't have enough Rose Coins.", ephemeral=True)
+            return await ctx.send("❌ You don't have enough Rose Coins.")
         
         await self.bot.update_balance(ctx.author.id, -amount)
         await self.bot.update_balance(member.id, amount)
@@ -88,8 +88,8 @@ class Economy(commands.Cog):
             return await ctx.send("❌ You cannot rob yourself.", ephemeral=True)
         
         data = await self.db.get_economy_data(ctx.author.id)
-        last_rob = data['last_rob']
-        is_premium = data['premium_until'] > time.time()
+        last_rob = data.get('last_rob', 0)
+        is_premium = data.get('premium_until', 0) > time.time()
         cooldown = 1800 if is_premium else 3600
         
         current_time = time.time()
@@ -100,13 +100,13 @@ class Economy(commands.Cog):
             msg = f"⏳ This command is on cooldown. Try again in **{minutes}m {seconds}s**."
             if not is_premium:
                 msg += "\n💡 *Tip: Premium members ($5.00/mo) get 50% reduced rob cooldowns!*"
-            return await ctx.send(msg, ephemeral=True)
+            return await ctx.send(msg)
 
         target_balance = await self.db.get_balance(member.id)
-        my_balance = data['coins']
+        my_balance = data.get('coins', 500)
         
         if target_balance < 100:
-            return await ctx.send(f"❌ {member.display_name} is too poor to rob!", ephemeral=True)
+            return await ctx.send(f"❌ {member.display_name} is too poor to rob!")
         
         # 40% success rate (60% for premium)
         success_chance = 0.6 if is_premium else 0.4
@@ -153,16 +153,16 @@ class Economy(commands.Cog):
                     found = True
                     break
             if not found:
-                return await ctx.send("❌ Item not found in shop.", ephemeral=True)
+                return await ctx.send("❌ Item not found in shop.")
         
         item = self.shop_items[item_id]
         if item.get('premium_only') and not await self.db.is_user_premium(ctx.author.id):
-            return await ctx.send(f"✨ This item is exclusive to **flowerbot.gg Premium** members ($5.00/mo)!", ephemeral=True)
+            return await ctx.send(f"✨ This item is exclusive to **flowerbot.gg Premium** members ($5.00/mo)!")
             
         balance = await self.db.get_balance(ctx.author.id)
         
         if balance < item['price']:
-            return await ctx.send(f"❌ You don't have enough RC to buy {item['name']}.", ephemeral=True)
+            return await ctx.send(f"❌ You don't have enough RC to buy {item['name']}.")
         
         await self.bot.update_balance(ctx.author.id, -item['price'])
         await self.db.add_item(ctx.author.id, item_id, 1, rank=item.get('rank', 'Common'))

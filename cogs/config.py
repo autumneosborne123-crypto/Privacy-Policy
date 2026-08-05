@@ -145,6 +145,15 @@ class ConfigCog(commands.Cog, name="Config"):
     @is_admin()
     async def set_log_channel(self, ctx, channel: discord.TextChannel = None):
         if channel:
+            # Check permissions before setting
+            permissions = channel.permissions_for(ctx.guild.me)
+            if not (permissions.view_channel and permissions.send_messages and permissions.embed_links):
+                missing = []
+                if not permissions.view_channel: missing.append("View Channel")
+                if not permissions.send_messages: missing.append("Send Messages")
+                if not permissions.embed_links: missing.append("Embed Links")
+                return await ctx.send(f"❌ I don't have enough permissions in {channel.mention} to send logs. Missing: {', '.join(missing)}", ephemeral=True)
+
             await self.bot.db.set_log_channel(ctx.guild.id, channel.id)
             await ctx.send(f"✅ Bot audit logs will now be sent to {channel.mention}.", ephemeral=True)
         else:

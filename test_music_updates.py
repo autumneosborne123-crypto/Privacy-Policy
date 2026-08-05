@@ -22,6 +22,7 @@ class TestMusicUpdates(unittest.IsolatedAsyncioTestCase):
     def mock_context(self):
         mock_ctx = AsyncMock()
         mock_ctx.bot = self.bot
+        mock_ctx.interaction.response.is_done = MagicMock(return_value=False)
         mock_ctx.guild.id = 123
         mock_ctx.guild.roles = []
         mock_ctx.author.id = 456
@@ -111,7 +112,9 @@ class TestMusicUpdates(unittest.IsolatedAsyncioTestCase):
         mock_ctx = self.mock_context()
         mock_ctx.author.voice.channel = MagicMock()
         mock_vc = MagicMock(spec=discord.VoiceClient)
+        mock_vc.channel = mock_ctx.author.voice.channel
         mock_vc.is_playing.return_value = True
+        mock_vc.is_paused.return_value = False
         mock_ctx.voice_client = mock_vc
         
         self.bot.db.get_playlist.return_value = [{'title': 'Saved 1', 'webpage_url': 'url1'}]

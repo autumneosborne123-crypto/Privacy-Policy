@@ -19,12 +19,19 @@ class MockPermissions:
         self.manage_messages = manage_messages
 
 class MockRole:
-    def __init__(self, name, id=None):
+    def __init__(self, name, id=None, position=0):
         self.name = name
         self.id = id or hash(name)
         self.mention = f"<@&{self.id}>"
+        self.position = position
     def __eq__(self, other):
         return isinstance(other, MockRole) and self.id == other.id
+    def __lt__(self, other):
+        if not isinstance(other, MockRole): return NotImplemented
+        return self.position < other.position
+    def __le__(self, other):
+        if not isinstance(other, MockRole): return NotImplemented
+        return self.position <= other.position
     def __hash__(self):
         return self.id
 
@@ -34,12 +41,16 @@ class MockMember:
         self.name = name
         self.display_name = name
         self.mention = f"<@{id}>"
-        self.roles = roles or []
+        self.roles = roles or [MockRole("@everyone", position=0)]
         self.guild_permissions = MockPermissions(administrator=administrator)
         self.timed_out_until = None
         self.display_avatar = MagicMock()
         self.display_avatar.url = "http://example.com/avatar.png"
         self.voice = None
+
+    @property
+    def top_role(self):
+        return max(self.roles)
 
     async def timeout(self, until, reason=None):
         self.timed_out_until = until
@@ -90,9 +101,10 @@ class TestAdvancedEdgeCases(unittest.IsolatedAsyncioTestCase):
         self.guild.id = 123
         self.guild.name = "Test Guild"
         self.guild.members = []
-        self.guild.me = MockMember(999, "Bot")
+        self.guild.owner = MockMember(0, "Owner", roles=[MockRole("Owner", position=100)])
+        self.guild.me = MockMember(999, "Bot", roles=[MockRole("Bot", position=50)])
         
-        self.author = MockMember(1, "Staff", roles=[MockRole("admin")], administrator=True)
+        self.author = MockMember(1, "Staff", roles=[MockRole("admin", position=60)], administrator=True)
         self.target = MockMember(2, "User")
         self.guild.members.append(self.target)
         
@@ -121,7 +133,7 @@ class TestAdvancedEdgeCases(unittest.IsolatedAsyncioTestCase):
         self.ctx.send.assert_called()
         args, kwargs = self.ctx.send.call_args
         self.assertIn("cannot exceed 28 days", args[0])
-        self.assertTrue(kwargs.get('ephemeral'))
+        # No longer ephemeral for prefix command
 
     async def test_mute_no_role_no_duration(self):
         # Ensure no mute role is set

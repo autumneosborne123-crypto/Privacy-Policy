@@ -4,22 +4,114 @@ from discord import app_commands
 import random
 import asyncio
 
+class AnimalSelect(discord.ui.Select):
+    def __init__(self, cog, animals, member):
+        self.cog = cog
+        self.animals = animals
+        self.member = member
+        options = [
+            discord.SelectOption(label="Back to List", emoji="🔙", description="View all animals")
+        ]
+        
+        # Limit to 24 animals to fit in the select menu (max 25 options)
+        for a in animals[:24]:
+            a_id, a_type, nick, lvl, xp, hp, mhp, atk, df, spd, rarity = a
+            data = cog.animals_data.get(a_type, {"name": a_type})
+            options.append(discord.SelectOption(
+                label=f"{nick} ({data['name']})",
+                description=f"Lvl {lvl} | {rarity}",
+                value=str(a_id),
+                emoji=cog.type_emojis.get(data.get('type'), "🐾")
+            ))
+            
+        super().__init__(placeholder="Select an animal to view details...", min_values=1, max_values=1, options=options)
+
+    async def callback(self, interaction: discord.Interaction):
+        if self.values[0] == "Back to List":
+            embed = self.view.create_list_embed()
+            return await interaction.response.edit_message(embed=embed, view=self.view)
+            
+        target_id = int(self.values[0])
+        target_animal = next((a for a in self.animals if a[0] == target_id), None)
+        
+        if not target_animal:
+            return await interaction.response.send_message("❌ Animal not found.", ephemeral=True)
+            
+        # id, animal_type, nickname, level, xp, hp, max_hp, attack, defense, speed, rarity
+        a_id, a_type, nick, lvl, xp, hp, mhp, atk, df, spd, rarity = target_animal
+        data = self.cog.animals_data.get(a_type, {"name": a_type, "image": None, "type": "Unknown"})
+        
+        type_icon = self.cog.type_emojis.get(data.get('type'), "❓")
+        rarity_icon = self.cog.rarity_emojis.get(rarity, "⚪")
+        
+        embed = discord.Embed(title=f"🐾 {nick}", color=0x2ecc71)
+        embed.description = f"**Species:** {data['name']}\n**Type:** {type_icon} {data.get('type')}\n**Rank:** {rarity_icon} {rarity}\n**Level:** {lvl} ({xp}/100 XP)"
+        embed.add_field(name="Stats", value=f"❤️ HP: {hp}/{mhp}\n⚔️ Attack: {atk}\n🛡️ Defense: {df}\n⚡ Speed: {spd}")
+        
+        if data.get('image'):
+            embed.set_image(url=data['image'])
+        
+        embed.set_thumbnail(url=self.member.display_avatar.url)
+        embed.set_footer(text=f"Viewing {nick} | Use the menu to switch")
+        
+        await interaction.response.edit_message(embed=embed, view=self.view)
+
+class AnimalListView(discord.ui.View):
+    def __init__(self, cog, animals, member):
+        super().__init__(timeout=60)
+        self.cog = cog
+        self.animals = animals
+        self.member = member
+        self.add_item(AnimalSelect(cog, animals, member))
+        
+    def create_list_embed(self):
+        embed = discord.Embed(title=f"🐾 {self.member.display_name}'s Animals", color=0x2ecc71)
+        
+        # Only show first 25 animals in the list embed to avoid field limit
+        for a in self.animals[:25]:
+            # id, animal_type, nickname, level, xp, hp, max_hp, attack, defense, speed, rarity
+            a_id, a_type, nick, lvl, xp, hp, mhp, atk, df, spd, rarity = a
+            data = self.cog.animals_data.get(a_type, {"name": a_type, "type": "Unknown"})
+            name = data['name']
+            type_icon = self.cog.type_emojis.get(data.get('type'), "❓")
+            rarity_icon = self.cog.rarity_emojis.get(rarity, "⚪")
+            embed.add_field(name=f"{nick} ({name})", value=f"{rarity_icon} **{rarity}** | {type_icon} **{data.get('type')}**\nLvl: {lvl} | HP: {hp}/{mhp}", inline=True)
+        
+        if self.animals:
+            first_animal_type = self.animals[0][1]
+            if first_animal_type in self.cog.animals_data:
+                embed.set_thumbnail(url=self.cog.animals_data[first_animal_type]['image'])
+                
+        footer_text = f"Total: {len(self.animals)} animals"
+        if self.animals:
+            footer_text += " | Select one below to see its image!"
+        embed.set_footer(text=footer_text)
+        return embed
+
 class Adventure(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.db = bot.db
         self.animals_data = {
-            "leafy_rabbit": {"name": "Leafy Rabbit", "type": "Grass", "hp": 50, "attack": 10, "defense": 5, "speed": 15, "rarity": "Common"},
-            "fire_fox": {"name": "Fire Fox", "type": "Fire", "hp": 45, "attack": 15, "defense": 5, "speed": 12, "rarity": "Common"},
-            "water_turtle": {"name": "Water Turtle", "type": "Water", "hp": 60, "attack": 8, "defense": 12, "speed": 5, "rarity": "Common"},
-            "electric_mouse": {"name": "Electric Mouse", "type": "Electric", "hp": 40, "attack": 12, "defense": 5, "speed": 20, "rarity": "Uncommon"},
-            "ice_wolf": {"name": "Ice Wolf", "type": "Ice", "hp": 55, "attack": 14, "defense": 8, "speed": 14, "rarity": "Uncommon"},
-            "magma_slug": {"name": "Magma Slug", "type": "Magma", "hp": 70, "attack": 18, "defense": 10, "speed": 4, "rarity": "Uncommon"},
-            "stone_golem": {"name": "Stone Golem", "type": "Rock", "hp": 80, "attack": 10, "defense": 15, "speed": 2, "rarity": "Rare"},
-            "thunder_bird": {"name": "Thunder Bird", "type": "Electric", "hp": 65, "attack": 22, "defense": 8, "speed": 25, "rarity": "Rare"},
-            "crystal_deer": {"name": "Crystal Deer", "type": "Crystal", "hp": 90, "attack": 15, "defense": 20, "speed": 15, "rarity": "Rare"},
-            "shadow_dragon": {"name": "Shadow Dragon", "type": "Shadow", "hp": 100, "attack": 25, "defense": 20, "speed": 18, "rarity": "Legendary"},
-            "celestial_phoenix": {"name": "Celestial Phoenix", "type": "Celestial", "hp": 120, "attack": 30, "defense": 25, "speed": 30, "rarity": "Legendary"}
+            "leafy_rabbit": {"name": "Leafy Rabbit", "type": "Grass", "hp": 50, "attack": 10, "defense": 5, "speed": 15, "rarity": "Common", "image": "https://i.imgur.com/v09873r.png"},
+            "fire_fox": {"name": "Fire Fox", "type": "Fire", "hp": 45, "attack": 15, "defense": 5, "speed": 12, "rarity": "Common", "image": "https://i.imgur.com/A66r6jX.png"},
+            "water_turtle": {"name": "Water Turtle", "type": "Water", "hp": 60, "attack": 8, "defense": 12, "speed": 5, "rarity": "Common", "image": "https://i.imgur.com/4Nf4w6t.png"},
+            "electric_mouse": {"name": "Electric Mouse", "type": "Electric", "hp": 40, "attack": 12, "defense": 5, "speed": 20, "rarity": "Uncommon", "image": "https://i.imgur.com/mOId3vj.png"},
+            "ice_wolf": {"name": "Ice Wolf", "type": "Ice", "hp": 55, "attack": 14, "defense": 8, "speed": 14, "rarity": "Uncommon", "image": "https://i.imgur.com/8LzP7mG.png"},
+            "magma_slug": {"name": "Magma Slug", "type": "Magma", "hp": 70, "attack": 18, "defense": 10, "speed": 4, "rarity": "Uncommon", "image": "https://i.imgur.com/pYIit4M.png"},
+            "stone_golem": {"name": "Stone Golem", "type": "Rock", "hp": 80, "attack": 10, "defense": 15, "speed": 2, "rarity": "Rare", "image": "https://i.imgur.com/1B98D9G.png"},
+            "thunder_bird": {"name": "Thunder Bird", "type": "Electric", "hp": 65, "attack": 22, "defense": 8, "speed": 25, "rarity": "Rare", "image": "https://i.imgur.com/XF8vM6n.png"},
+            "crystal_deer": {"name": "Crystal Deer", "type": "Crystal", "hp": 90, "attack": 15, "defense": 20, "speed": 15, "rarity": "Rare", "image": "https://i.imgur.com/qM6nZ9Y.png"},
+            "shadow_dragon": {"name": "Shadow Dragon", "type": "Shadow", "hp": 100, "attack": 25, "defense": 20, "speed": 18, "rarity": "Legendary", "image": "https://i.imgur.com/w9U8vV4.png"},
+            "celestial_phoenix": {"name": "Celestial Phoenix", "type": "Celestial", "hp": 120, "attack": 30, "defense": 25, "speed": 30, "rarity": "Legendary", "image": "https://i.imgur.com/uR8N8Vw.png"}
+        }
+        self.type_emojis = {
+            "Grass": "🌿", "Fire": "🔥", "Water": "💧", "Electric": "⚡", 
+            "Ice": "❄️", "Magma": "🌋", "Rock": "🪨", "Crystal": "💎", 
+            "Shadow": "🌑", "Celestial": "✨"
+        }
+        self.rarity_emojis = {
+            "Common": "⚪", "Uncommon": "🟢", "Rare": "🔵", "Legendary": "🟣"
         }
 
     async def animal_autocomplete(self, interaction: discord.Interaction, current: str):
@@ -94,7 +186,9 @@ class Adventure(commands.Cog):
                 "speed": animal['speed'] + random.randint(-2, 2)
             }
             await self.db.add_animal(ctx.author.id, animal_id, animal['name'], stats, rarity=selected_rarity)
-            await ctx.send(f"🎉 Success! You caught a **{animal['name']}** ([{selected_rarity}])!")
+            embed = discord.Embed(title="🎉 Success!", description=f"You caught a **{animal['name']}** ([{selected_rarity}])!", color=0x2ecc71)
+            embed.set_image(url=animal['image'])
+            await ctx.send(embed=embed)
             
             if selected_rarity == "Legendary":
                 await self.bot.log_action(ctx.guild, "Legendary Catch", f"**{ctx.author}** caught a **Legendary {animal['name']}**!", color=0xf1c40f, user=ctx.author)
@@ -107,7 +201,9 @@ class Adventure(commands.Cog):
             if res == "COMPLETED":
                 self.bot.dispatch("quest_completion", ctx.author.id)
         else:
-            await ctx.send(f"💨 The wild **{animal['name']}** escaped!")
+            embed = discord.Embed(title="💨 Escaped!", description=f"The wild **{animal['name']}** escaped!", color=0xe74c3c)
+            embed.set_image(url=animal['image'])
+            await ctx.send(embed=embed)
 
     @commands.hybrid_command(name="animals", description="List your caught animals")
     async def animals(self, ctx, member: discord.Member = None):
@@ -117,12 +213,38 @@ class Adventure(commands.Cog):
         if not animals:
             return await ctx.send(f"🐾 {member.display_name} hasn't caught any animals yet.")
         
-        embed = discord.Embed(title=f"🐾 {member.display_name}'s Animals", color=0x2ecc71)
-        for a in animals:
-            # id, animal_type, nickname, level, xp, hp, max_hp, attack, defense, speed, rarity
-            a_id, a_type, nick, lvl, xp, hp, mhp, atk, df, spd, rarity = a
-            name = self.animals_data[a_type]['name']
-            embed.add_field(name=f"{nick} ({name})", value=f"Rank: **{rarity}** | Lvl: {lvl} | HP: {hp}/{mhp} | Atk: {atk} | Def: {df}", inline=True)
+        view = AnimalListView(self, animals, member)
+        embed = view.create_list_embed()
+        await ctx.send(embed=embed, view=view)
+
+    @commands.hybrid_command(name="animal_info", description="View details of one of your animals")
+    @app_commands.autocomplete(animal=animal_autocomplete)
+    async def animal_info(self, ctx, animal: str):
+        await ctx.defer()
+        animal = str(animal)
+        
+        user_animals = await self.db.get_user_animals(ctx.author.id)
+        target_animal = next((a for a in user_animals if a[2].lower() == animal.lower()), None)
+        if not target_animal and animal.isdigit():
+            target_animal = next((a for a in user_animals if str(a[0]) == animal), None)
+            
+        if not target_animal: return await ctx.send(f"❌ You don't have an animal named '**{animal}**'.")
+        
+        # id, animal_type, nickname, level, xp, hp, max_hp, attack, defense, speed, rarity
+        a_id, a_type, nick, lvl, xp, hp, mhp, atk, df, spd, rarity = target_animal
+        data = self.animals_data.get(a_type, {"name": a_type, "image": None, "type": "Unknown"})
+        
+        type_icon = self.type_emojis.get(data.get('type'), "❓")
+        rarity_icon = self.rarity_emojis.get(rarity, "⚪")
+        
+        embed = discord.Embed(title=f"🐾 {nick}", color=0x2ecc71)
+        embed.description = f"**Species:** {data['name']}\n**Type:** {type_icon} {data.get('type')}\n**Rank:** {rarity_icon} {rarity}\n**Level:** {lvl} ({xp}/100 XP)"
+        embed.add_field(name="Stats", value=f"❤️ HP: {hp}/{mhp}\n⚔️ Attack: {atk}\n🛡️ Defense: {df}\n⚡ Speed: {spd}")
+        
+        if data.get('image'):
+            embed.set_image(url=data['image'])
+        
+        embed.set_thumbnail(url=ctx.author.display_avatar.url)
         
         await ctx.send(embed=embed)
 
@@ -168,6 +290,12 @@ class Adventure(commands.Cog):
         embed = discord.Embed(title="⚔️ Animal Battle", color=0xe74c3c)
         embed.add_field(name=f"🔺 {a_nick}", value=f"HP: {a_hp}/{attacker[6]}", inline=True)
         embed.add_field(name=f"🔻 {d_nick}", value=f"HP: {d_hp}/{defender[6]}", inline=True)
+        
+        # Set thumbnail to defender's image
+        d_type = defender[1]
+        if d_type in self.animals_data:
+            embed.set_thumbnail(url=self.animals_data[d_type]['image'])
+            
         msg = await ctx.send(embed=embed)
         
         # Turn-based battle loop
@@ -259,7 +387,11 @@ class Adventure(commands.Cog):
         await self.db.remove_item(ctx.author.id, 'medicine', 1)
         new_hp = min(target_animal[6], target_animal[5] + 50)
         await self.db.update_animal(animal_id, {"hp": new_hp})
-        await ctx.send(f"💊 You used medicine on **{target_animal[2]}**. HP is now {new_hp}/{target_animal[6]}.")
+        embed = discord.Embed(title="💊 Healed!", description=f"You used medicine on **{target_animal[2]}**. HP is now **{new_hp}/{target_animal[6]}**.", color=0x2ecc71)
+        a_type = target_animal[1]
+        if a_type in self.animals_data:
+            embed.set_thumbnail(url=self.animals_data[a_type]['image'])
+        await ctx.send(embed=embed)
 
     @commands.hybrid_command(name="train", description="Train your animal to gain XP")
     @commands.cooldown(1, 30, commands.BucketType.user)
@@ -300,13 +432,18 @@ class Adventure(commands.Cog):
             res = await self.db.update_quest_progress(ctx.author.id, "train_animals")
             if res == "COMPLETED":
                 self.bot.dispatch("quest_completion", ctx.author.id)
-                
-        await ctx.send(msg)
+        
+        embed = discord.Embed(title="💪 Training Complete", description=msg, color=0x3498db)
+        a_type = target_animal[1]
+        if a_type in self.animals_data:
+            embed.set_thumbnail(url=self.animals_data[a_type]['image'])
+        await ctx.send(embed=embed)
 
     @commands.hybrid_command(name="explore", description="Explore the wild for random events and rewards")
     @commands.cooldown(1, 60, commands.BucketType.user)
     async def explore(self, ctx):
         await ctx.defer()
+        embed = discord.Embed(title=f"🌸 {ctx.author.display_name}'s Adventure", color=0x2ecc71)
         events = [
             {"text": "You found a hidden patch of Rose Flowers!", "reward_coins": random.randint(100, 300)},
             {"text": "You discovered a lost item in the bushes!", "reward_item": random.choice(["petal", "bait", "medicine"])},
@@ -338,8 +475,12 @@ class Adventure(commands.Cog):
                 new_hp = min(animal[6], animal[5] + event['reward_hp'])
                 await self.db.update_animal(animal[0], {"hp": new_hp})
                 result_text += f"\n💖 Result: **{animal[2]}** recovered some HP!"
+                a_type = animal[1]
+                if a_type in self.animals_data:
+                    embed.set_thumbnail(url=self.animals_data[a_type]['image'])
         
-        await ctx.send(f"🌸 **{ctx.author.display_name}'s Adventure**\n{result_text}")
+        embed.description = result_text
+        await ctx.send(embed=embed)
         
         # Progress quest
         res = await self.db.update_quest_progress(ctx.author.id, "explore_events")
@@ -368,7 +509,11 @@ class Adventure(commands.Cog):
         
         await self.db.remove_item(ctx.author.id, 'revive', 1, rank='Rare')
         await self.db.update_animal(animal_id, {"hp": target_animal[6]})
-        await ctx.send(f"👼 You used Revive on **{target_animal[2]}**! It's back to full HP.")
+        embed = discord.Embed(title="👼 Revived!", description=f"You used Revive on **{target_animal[2]}**! It's back to full HP.", color=0x9b59b6)
+        a_type = target_animal[1]
+        if a_type in self.animals_data:
+            embed.set_thumbnail(url=self.animals_data[a_type]['image'])
+        await ctx.send(embed=embed)
 
     @commands.hybrid_command(name="boost", description="Permanently boost an animal's stats using Protein Shake or Iron Shield")
     @app_commands.autocomplete(animal=animal_autocomplete)
@@ -397,11 +542,16 @@ class Adventure(commands.Cog):
         if item_name == "protein_shake":
             new_val = target_animal[7] + 3
             await self.db.update_animal(animal_id, {"attack": new_val})
-            await ctx.send(f"💪 **{target_animal[2]}** drank a Protein Shake! Attack increased to **{new_val}**!")
+            embed = discord.Embed(title="💪 Attack Boosted!", description=f"**{target_animal[2]}** drank a Protein Shake! Attack increased to **{new_val}**!", color=0xe67e22)
         else:
             new_val = target_animal[8] + 3
             await self.db.update_animal(animal_id, {"defense": new_val})
-            await ctx.send(f"🛡️ **{target_animal[2]}** used an Iron Shield! Defense increased to **{new_val}**!")
+            embed = discord.Embed(title="🛡️ Defense Boosted!", description=f"**{target_animal[2]}** used an Iron Shield! Defense increased to **{new_val}**!", color=0x95a5a6)
+            
+        a_type = target_animal[1]
+        if a_type in self.animals_data:
+            embed.set_thumbnail(url=self.animals_data[a_type]['image'])
+        await ctx.send(embed=embed)
 
     @commands.hybrid_command(name="quest", description="View your current quests")
     async def quest(self, ctx):

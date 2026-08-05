@@ -32,6 +32,7 @@ class TestLyricsEdgeCases(unittest.IsolatedAsyncioTestCase):
     def mock_context(self):
         ctx = AsyncMock()
         ctx.bot = self.bot
+        ctx.interaction.response.is_done = MagicMock(return_value=False)
         ctx.guild = self.guild
         ctx.voice_client = self.vc
         ctx.send = AsyncMock()

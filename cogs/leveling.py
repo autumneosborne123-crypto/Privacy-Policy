@@ -316,9 +316,9 @@ class Leveling(commands.Cog):
             return False
         return commands.check(predicate)
 
-    @commands.command(name="s?u", description="Show the server leaderboard", aliases=["leaderboard", "top", "lb"])
+    @commands.command(name="u", description="Show the server message leaderboard", aliases=["leaderboard", "top", "lb", "s?u"])
     @is_leveling_channel()
-    async def leaderboard(self, ctx: commands.Context, sort: str = "xp", type: str = None):
+    async def leaderboard(self, ctx: commands.Context, sort: str = "messages", type: str = None):
         logging.info(f"Leaderboard command invoked by {ctx.author} with sort={sort}, type={type}")
         # Use a task to handle defer-like behavior in prefix commands if needed, 
         # but here we can just process. Prefix commands don't have a 3s limit like interactions.
@@ -400,7 +400,7 @@ class Leveling(commands.Cog):
             logging.error(f"Error in leaderboard command: {e}")
             await ctx.send(f"❌ An error occurred: {e}")
 
-    @commands.hybrid_command(name="rank", description="Check your or another member's rank", aliases=["u", "me", "stats"])
+    @commands.hybrid_command(name="rank", description="Check your or another member's rank", aliases=["me", "stats"])
     @is_leveling_channel()
     @app_commands.describe(member="The member to check (defaults to you)", chart="Show 7-day message chart")
     async def rank(self, ctx: commands.Context, member: discord.Member = None, chart: bool = False):
