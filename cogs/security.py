@@ -96,8 +96,8 @@ class Security(commands.Cog):
         if self.is_suspicious_bot(member):
             try:
                 reason = "Auto-ban: Suspicious account"
-                await member.ban(reason=reason)
-                await self.bot.log_action(member.guild, "🛡️ Auto-Ban: Suspicious Account", f"{member.mention} was automatically banned.\n**Reason:** {reason}\n**Account Age:** {discord.utils.utcnow() - member.created_at}", color=0xff0000, user=member)
+                await member.ban(reason=reason, delete_message_seconds=604800)
+                await self.bot.log_action(member.guild, "🛡️ Auto-Ban: Suspicious Account", f"{member.mention} was automatically banned and messages were deleted.\n**Reason:** {reason}\n**Account Age:** {discord.utils.utcnow() - member.created_at}", color=0xff0000, user=member)
                 logging.info(f"Auto-banned: {member.name} ({reason})")
             except Exception as e:
                 logging.error(f"Error banning {member.name}: {e}")
@@ -130,8 +130,8 @@ class Security(commands.Cog):
             if is_scam:
                 try:
                     await message.delete()
-                    await message.author.ban(reason="Auto-ban: Scam account/content")
-                    await self.bot.log_action(message.guild, "🛡️ Auto-Ban: Scam Content", f"{message.author.mention} was automatically banned for scam content.\n**Message:** {message.content[:500]}", color=0xff0000, user=message.author)
+                    await message.author.ban(reason="Auto-ban: Scam account/content", delete_message_seconds=604800)
+                    await self.bot.log_action(message.guild, "🛡️ Auto-Ban: Scam Content", f"{message.author.mention} was automatically banned for scam content and messages were deleted.\n**Message:** {message.content[:500]}", color=0xff0000, user=message.author)
                     return
                 except Exception as e:
                     logging.error(f"Error banning scammer {message.author.name}: {e}")

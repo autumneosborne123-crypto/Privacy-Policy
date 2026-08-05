@@ -136,9 +136,9 @@ class Moderation(commands.Cog):
             embed.add_field(name="Reason", value=reason)
             await self._send_dm(member, embed)
             
-            await member.ban(reason=reason)
+            await member.ban(reason=reason, delete_message_seconds=604800)
             await ctx.send(f"✅ Successfully banned {member.name}. Reason: {reason}")
-            await self.bot.log_action(ctx.guild, "Member Ban", f"{member.name} was banned.\n**Reason:** {reason}", color=0xff0000, moderator=ctx.author, user=member)
+            await self.bot.log_action(ctx.guild, "Member Ban", f"{member.name} was banned and messages from the last 7 days were deleted.\n**Reason:** {reason}", color=0xff0000, moderator=ctx.author, user=member)
         except Exception as e:
             await ctx.send(f"❌ Failed to ban member: {e}")
 

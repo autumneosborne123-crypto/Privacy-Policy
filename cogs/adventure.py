@@ -186,8 +186,26 @@ class Adventure(commands.Cog):
                 "speed": animal['speed'] + random.randint(-2, 2)
             }
             await self.db.add_animal(ctx.author.id, animal_id, animal['name'], stats, rarity=selected_rarity)
-            embed = discord.Embed(title="🎉 Success!", description=f"You caught a **{animal['name']}** ([{selected_rarity}])!", color=0x2ecc71)
-            embed.set_image(url=animal['image'])
+            
+            type_icon = self.type_emojis.get(animal.get('type'), "❓")
+            rarity_icon = self.rarity_emojis.get(selected_rarity, "⚪")
+            
+            embed = discord.Embed(title="🎉 Success!", color=0x2ecc71)
+            embed.description = (
+                f"You caught a wild **{animal['name']}**!\n\n"
+                f"**Type:** {type_icon} {animal.get('type')}\n"
+                f"**Rank:** {rarity_icon} {selected_rarity}\n"
+                f"**Level:** 1"
+            )
+            embed.add_field(
+                name="Stats", 
+                value=f"❤️ HP: {stats['hp']}\n⚔️ Attack: {stats['attack']}\n🛡️ Defense: {stats['defense']}\n⚡ Speed: {stats['speed']}"
+            )
+            
+            if animal.get('image'):
+                embed.set_image(url=animal['image'])
+            
+            embed.set_thumbnail(url=ctx.author.display_avatar.url)
             await ctx.send(embed=embed)
             
             if selected_rarity == "Legendary":
@@ -201,8 +219,17 @@ class Adventure(commands.Cog):
             if res == "COMPLETED":
                 self.bot.dispatch("quest_completion", ctx.author.id)
         else:
-            embed = discord.Embed(title="💨 Escaped!", description=f"The wild **{animal['name']}** escaped!", color=0xe74c3c)
-            embed.set_image(url=animal['image'])
+            type_icon = self.type_emojis.get(animal.get('type'), "❓")
+            rarity_icon = self.rarity_emojis.get(selected_rarity, "⚪")
+            
+            embed = discord.Embed(title="💨 Escaped!", color=0xe74c3c)
+            embed.description = f"The wild **{animal['name']}** escaped into the bushes!"
+            embed.add_field(name="Animal Info", value=f"**Type:** {type_icon} {animal.get('type')}\n**Rank:** {rarity_icon} {selected_rarity}")
+            
+            if animal.get('image'):
+                embed.set_image(url=animal['image'])
+            
+            embed.set_thumbnail(url=ctx.author.display_avatar.url)
             await ctx.send(embed=embed)
 
     @commands.hybrid_command(name="animals", description="List your caught animals")

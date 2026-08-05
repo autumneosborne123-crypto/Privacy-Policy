@@ -11,24 +11,38 @@ class MockPermissions:
         self.administrator = administrator
 
 class MockRole:
-    def __init__(self, name):
+    def __init__(self, name, position=0):
         self.name = name
         self.mention = f"@{name}"
+        self.position = position
+    def __lt__(self, other):
+        return self.position < other.position
+    def __le__(self, other):
+        return self.position <= other.position
 
 class MockMember:
     def __init__(self, id, name, roles=None, administrator=False):
         self.id = id
         self.name = name
         self.mention = f"<@{id}>"
-        self.roles = roles or []
+        self.roles = roles or [MockRole("@everyone", position=0)]
         self.guild_permissions = MockPermissions(administrator=administrator)
         self.banned = False
         self.ban_reason = None
+        self.delete_message_seconds = None
         self.display_avatar = type('Avatar', (), {'url': 'http://example.com/avatar.png'})
 
-    async def ban(self, reason=None):
+    @property
+    def top_role(self):
+        return max(self.roles)
+
+    async def ban(self, reason=None, delete_message_seconds=None):
         self.banned = True
         self.ban_reason = reason
+        self.delete_message_seconds = delete_message_seconds
+
+    async def send(self, content=None, embed=None):
+        pass
 
     def __str__(self):
         return self.name
@@ -52,7 +66,7 @@ class MockGuild:
     def __init__(self, id, name="Test Guild"):
         self.id = id
         self.name = name
-        self.me = MockMember(999, "Bot")
+        self.me = MockMember(999, "Bot", roles=[MockRole("BotRole", position=100)])
         self.unbanned_user = None
         self.unban_reason = None
         self.audit_log_entries = []
@@ -106,7 +120,7 @@ async def test_permissions():
     # 2. Staff roles
     staff_roles = ["sr.mod", "admin", "head admin", "co-owner", "adminstator", "administrator"]
     for role_name in staff_roles:
-        member = MockMember(2, f"Staff_{role_name}", roles=[MockRole(role_name)])
+        member = MockMember(2, f"Staff_{role_name}", roles=[MockRole(role_name, position=10)])
         ctx = MockCtx(None, member, guild)
         assert await predicate(ctx) == True
         print(f"Permission (Role {role_name}): PASSED")
@@ -129,7 +143,7 @@ async def test_moderation_commands():
         cog = Moderation(bot)
         
         guild = MockGuild(123)
-        author = MockMember(1, "Mod", roles=[MockRole("admin")])
+        author = MockMember(1, "Mod", roles=[MockRole("admin", position=50)])
         target = MockMember(2, "Spammer")
         ctx = MockCtx(bot, author, guild)
 

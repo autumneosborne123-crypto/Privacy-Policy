@@ -96,6 +96,51 @@ class Logging(commands.Cog):
                 color = 0x3498db
             
             await self.bot.log_action(member.guild, "Voice Activity", description, color=color, user=member)
+            
+    @commands.Cog.listener()
+    async def on_member_ban(self, guild, user):
+        enabled = await self.bot.db.get_guild_setting(guild.id, "log_member_ban")
+        if enabled == 0: return
+        
+        # Try to find the ban reason from audit logs
+        reason = "No reason provided"
+        moderator = None
+        try:
+            async for entry in guild.audit_logs(limit=5, action=discord.AuditLogAction.ban):
+                if entry.target.id == user.id:
+                    reason = entry.reason or "No reason provided"
+                    moderator = entry.user
+                    break
+        except:
+            pass
+            
+        description = f"**{user.name}** was banned from the server."
+        if reason:
+            description += f"\n**Reason:** {reason}"
+            
+        await self.bot.log_action(guild, "Member Banned", description, color=0xff0000, user=user, moderator=moderator)
+
+    @commands.Cog.listener()
+    async def on_member_unban(self, guild, user):
+        enabled = await self.bot.db.get_guild_setting(guild.id, "log_member_unban")
+        if enabled == 0: return
+        
+        reason = "No reason provided"
+        moderator = None
+        try:
+            async for entry in guild.audit_logs(limit=5, action=discord.AuditLogAction.unban):
+                if entry.target.id == user.id:
+                    reason = entry.reason or "No reason provided"
+                    moderator = entry.user
+                    break
+        except:
+            pass
+
+        description = f"**{user.name}** was unbanned from the server."
+        if reason:
+            description += f"\n**Reason:** {reason}"
+
+        await self.bot.log_action(guild, "Member Unbanned", description, color=0x00ff00, user=user, moderator=moderator)
 
 async def setup(bot):
     await bot.add_cog(Logging(bot))

@@ -79,7 +79,7 @@ class TestSecurity(unittest.IsolatedAsyncioTestCase):
         await self.security_cog.on_message(mock_message)
         
         mock_message.delete.assert_called_once()
-        mock_message.author.ban.assert_called_once_with(reason="Auto-ban: Scam account/content")
+        mock_message.author.ban.assert_called_once_with(reason="Auto-ban: Scam account/content", delete_message_seconds=604800)
 
     async def test_on_message_scam_pattern_nitro_everyone(self):
         mock_message = AsyncMock(spec=discord.Message)

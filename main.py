@@ -222,9 +222,11 @@ class FlowerBot(commands.Bot):
             channel = self.get_channel(log_channel_id)
             if channel: return channel
         
-        # Fallback to "flower-log" channel
-        channel = discord.utils.get(guild.text_channels, name="flower-log")
-        return channel
+        # Fallback to "flower-log" or "flower-logs" or "flower logs" channel
+        for name in ["flower-log", "flower-logs", "flower logs"]:
+            channel = discord.utils.get(guild.text_channels, name=name)
+            if channel: return channel
+        return None
 
     async def log_action(self, guild, title, description, color=0x2b2d31, moderator=None, user=None):
         channel = await self.get_log_channel(guild)

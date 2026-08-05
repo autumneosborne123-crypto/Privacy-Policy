@@ -3,10 +3,19 @@ import os
 from utils.database import Database
 from main import FlowerBot
 
+class MockPermissions:
+    def __init__(self, view_channel=True, send_messages=True, embed_links=True):
+        self.view_channel = view_channel
+        self.send_messages = send_messages
+        self.embed_links = embed_links
+
 class MockChannel:
     def __init__(self, id):
         self.id = id
         self.sent_messages = []
+
+    def permissions_for(self, member):
+        return MockPermissions()
 
     async def send(self, content=None, embed=None):
         self.sent_messages.append({"content": content, "embed": embed})
@@ -17,6 +26,7 @@ class MockGuild:
         self.id = id
         self.name = "Test Guild"
         self.text_channels = []
+        self.me = "bot"
 
 class MockUser:
     def __init__(self, id, name):
