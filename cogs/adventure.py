@@ -93,17 +93,17 @@ class Adventure(commands.Cog):
         self.bot = bot
         self.db = bot.db
         self.animals_data = {
-            "leafy_rabbit": {"name": "Leafy Rabbit", "type": "Grass", "hp": 50, "attack": 10, "defense": 5, "speed": 15, "rarity": "Common", "image": "https://i.imgur.com/v09873r.png"},
-            "fire_fox": {"name": "Fire Fox", "type": "Fire", "hp": 45, "attack": 15, "defense": 5, "speed": 12, "rarity": "Common", "image": "https://i.imgur.com/A66r6jX.png"},
-            "water_turtle": {"name": "Water Turtle", "type": "Water", "hp": 60, "attack": 8, "defense": 12, "speed": 5, "rarity": "Common", "image": "https://i.imgur.com/4Nf4w6t.png"},
-            "electric_mouse": {"name": "Electric Mouse", "type": "Electric", "hp": 40, "attack": 12, "defense": 5, "speed": 20, "rarity": "Uncommon", "image": "https://i.imgur.com/mOId3vj.png"},
-            "ice_wolf": {"name": "Ice Wolf", "type": "Ice", "hp": 55, "attack": 14, "defense": 8, "speed": 14, "rarity": "Uncommon", "image": "https://i.imgur.com/8LzP7mG.png"},
-            "magma_slug": {"name": "Magma Slug", "type": "Magma", "hp": 70, "attack": 18, "defense": 10, "speed": 4, "rarity": "Uncommon", "image": "https://i.imgur.com/pYIit4M.png"},
-            "stone_golem": {"name": "Stone Golem", "type": "Rock", "hp": 80, "attack": 10, "defense": 15, "speed": 2, "rarity": "Rare", "image": "https://i.imgur.com/1B98D9G.png"},
-            "thunder_bird": {"name": "Thunder Bird", "type": "Electric", "hp": 65, "attack": 22, "defense": 8, "speed": 25, "rarity": "Rare", "image": "https://i.imgur.com/XF8vM6n.png"},
-            "crystal_deer": {"name": "Crystal Deer", "type": "Crystal", "hp": 90, "attack": 15, "defense": 20, "speed": 15, "rarity": "Rare", "image": "https://i.imgur.com/qM6nZ9Y.png"},
-            "shadow_dragon": {"name": "Shadow Dragon", "type": "Shadow", "hp": 100, "attack": 25, "defense": 20, "speed": 18, "rarity": "Legendary", "image": "https://i.imgur.com/w9U8vV4.png"},
-            "celestial_phoenix": {"name": "Celestial Phoenix", "type": "Celestial", "hp": 120, "attack": 30, "defense": 25, "speed": 30, "rarity": "Legendary", "image": "https://i.imgur.com/uR8N8Vw.png"}
+            "leafy_rabbit": {"name": "Leafy Rabbit", "type": "Grass", "hp": 50, "attack": 10, "defense": 5, "speed": 15, "rarity": "Common", "image": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/470.png"},
+            "fire_fox": {"name": "Fire Fox", "type": "Fire", "hp": 45, "attack": 15, "defense": 5, "speed": 12, "rarity": "Common", "image": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/653.png"},
+            "water_turtle": {"name": "Water Turtle", "type": "Water", "hp": 60, "attack": 8, "defense": 12, "speed": 5, "rarity": "Common", "image": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/7.png"},
+            "electric_mouse": {"name": "Electric Mouse", "type": "Electric", "hp": 40, "attack": 12, "defense": 5, "speed": 20, "rarity": "Uncommon", "image": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/25.png"},
+            "ice_wolf": {"name": "Ice Wolf", "type": "Ice", "hp": 55, "attack": 14, "defense": 8, "speed": 14, "rarity": "Uncommon", "image": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/471.png"},
+            "magma_slug": {"name": "Magma Slug", "type": "Magma", "hp": 70, "attack": 18, "defense": 10, "speed": 4, "rarity": "Uncommon", "image": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/219.png"},
+            "stone_golem": {"name": "Stone Golem", "type": "Rock", "hp": 80, "attack": 10, "defense": 15, "speed": 2, "rarity": "Rare", "image": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/76.png"},
+            "thunder_bird": {"name": "Thunder Bird", "type": "Electric", "hp": 65, "attack": 22, "defense": 8, "speed": 25, "rarity": "Rare", "image": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/145.png"},
+            "crystal_deer": {"name": "Crystal Deer", "type": "Crystal", "hp": 90, "attack": 15, "defense": 20, "speed": 15, "rarity": "Rare", "image": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/716.png"},
+            "shadow_dragon": {"name": "Shadow Dragon", "type": "Shadow", "hp": 100, "attack": 25, "defense": 20, "speed": 18, "rarity": "Legendary", "image": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/487.png"},
+            "celestial_phoenix": {"name": "Celestial Phoenix", "type": "Celestial", "hp": 120, "attack": 30, "defense": 25, "speed": 30, "rarity": "Legendary", "image": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/250.png"}
         }
         self.type_emojis = {
             "Grass": "🌿", "Fire": "🔥", "Water": "💧", "Electric": "⚡", 
