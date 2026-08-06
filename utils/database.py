@@ -128,6 +128,8 @@ class Database:
                 'log_message_edit': 'BOOLEAN DEFAULT 1',
                 'log_member_join': 'BOOLEAN DEFAULT 1',
                 'log_member_leave': 'BOOLEAN DEFAULT 1',
+                'log_member_ban': 'BOOLEAN DEFAULT 1',
+                'log_member_unban': 'BOOLEAN DEFAULT 1',
                 'log_voice_activity': 'BOOLEAN DEFAULT 1',
                 'premium_247': 'BOOLEAN DEFAULT 0',
                 'autolyrics': 'BOOLEAN DEFAULT 0'
@@ -388,7 +390,7 @@ class Database:
         async with aiosqlite.connect(self.db_path) as db:
             async with db.execute(f"SELECT {key} FROM guild_settings WHERE guild_id = ?", (str(guild_id),)) as cursor:
                 row = await cursor.fetchone()
-                if row and row[0]:
+                if row and row[0] is not None:
                     return type_cast(row[0]) if type_cast else row[0]
                 return None
 

@@ -105,6 +105,19 @@ class ConfigCog(commands.Cog, name="Config"):
         log_chan_id = settings.get("log_channel_id")
         log_chan = self.bot.get_channel(int(log_chan_id)) if log_chan_id else None
         
+        log_settings = []
+        if settings.get('log_message_delete') != 0: log_settings.append("Del")
+        if settings.get('log_message_edit') != 0: log_settings.append("Edit")
+        if settings.get('log_member_join') != 0: log_settings.append("Join")
+        if settings.get('log_member_leave') != 0: log_settings.append("Leave")
+        if settings.get('log_member_ban') != 0: log_settings.append("Ban")
+        if settings.get('log_member_unban') != 0: log_settings.append("Unban")
+        if settings.get('log_voice_activity') != 0: log_settings.append("Voice")
+        
+        log_info = f"**Channel:** {log_chan.mention if log_chan else 'None'}"
+        if log_settings: log_info += f"\n**Active:** {', '.join(log_settings)}"
+        else: log_info += "\n**Active:** None"
+        
         # Mute Role
         m_role_id = settings.get("mute_role_id")
         mute_role = ctx.guild.get_role(int(m_role_id)) if m_role_id else None
@@ -126,7 +139,7 @@ class ConfigCog(commands.Cog, name="Config"):
 
         embed.add_field(name="🌟 Quotes", value=f"**Channel:** {q_chan.mention if q_chan else 'None'}", inline=True)
         embed.add_field(name="🎵 Music", value=f"**Channel:** {m_chan.mention if m_chan else 'None'}", inline=True)
-        embed.add_field(name="📜 Audit Logs", value=f"**Channel:** {log_chan.mention if log_chan else 'None'}", inline=True)
+        embed.add_field(name="📜 Audit Logs", value=log_info, inline=True)
         embed.add_field(name="🔇 Mute Role", value=f"**Role:** {mute_role.mention if mute_role else 'None'}", inline=True)
         embed.add_field(name="🛠️ Embeds", value=f"**Channel:** {e_chan.mention if e_chan else 'Any'}", inline=True)
         embed.add_field(name="🎭 Roles", value=f"**Channel:** {r_chan.mention if r_chan else 'Any'}", inline=True)
@@ -189,6 +202,57 @@ class ConfigCog(commands.Cog, name="Config"):
         else:
             await self.bot.db.set_guild_setting(ctx.guild.id, "roles_channel_id", None)
             await ctx.send("✅ Role commands can now be used in any channel.", ephemeral=True)
+
+    @commands.hybrid_command(name="toggle_log", description="Enable or disable a logging category")
+    @is_admin()
+    @app_commands.choices(category=[
+        app_commands.Choice(name="Message Delete", value="log_message_delete"),
+        app_commands.Choice(name="Message Edit", value="log_message_edit"),
+        app_commands.Choice(name="Member Join", value="log_member_join"),
+        app_commands.Choice(name="Member Leave", value="log_member_leave"),
+        app_commands.Choice(name="Member Ban", value="log_member_ban"),
+        app_commands.Choice(name="Member Unban", value="log_member_unban"),
+        app_commands.Choice(name="Voice Activity", value="log_voice_activity")
+    ])
+    async def toggle_log(self, ctx, category: str, enabled: bool):
+        await self.bot.db.set_guild_setting(ctx.guild.id, category, 1 if enabled else 0)
+        status = "enabled" if enabled else "disabled"
+        await ctx.send(f"✅ Logging for `{category.replace('log_', '').replace('_', ' ').title()}` has been **{status}**.", ephemeral=True)
+
+    @commands.hybrid_command(name="toggle_module", description="Enable or disable a bot module (Cog)")
+    @is_admin()
+    @app_commands.choices(module=[
+        app_commands.Choice(name="Leveling", value="Leveling"),
+        app_commands.Choice(name="Music", value="Music"),
+        app_commands.Choice(name="Security", value="Security"),
+        app_commands.Choice(name="Fun", value="Fun"),
+        app_commands.Choice(name="Moderation", value="Moderation"),
+        app_commands.Choice(name="Games", value="Games"),
+        app_commands.Choice(name="Economy", value="Economy"),
+        app_commands.Choice(name="Adventure", value="Adventure"),
+        app_commands.Choice(name="Logging", value="Logging"),
+        app_commands.Choice(name="Roles", value="Roles"),
+        app_commands.Choice(name="Tools", value="Tools"),
+        app_commands.Choice(name="Media", value="Media")
+    ])
+    async def toggle_module(self, ctx, module: str, enabled: bool):
+        settings = await self.bot.db.get_all_guild_settings(ctx.guild.id)
+        disabled_raw = settings.get('disabled_cogs') or ""
+        disabled = [d.strip().lower() for d in disabled_raw.split(',') if d.strip()]
+        
+        module_lower = module.lower()
+        if enabled:
+            if module_lower in disabled:
+                disabled.remove(module_lower)
+        else:
+            if module_lower not in disabled:
+                disabled.append(module_lower)
+        
+        new_disabled = ",".join(disabled)
+        await self.bot.db.set_guild_setting(ctx.guild.id, "disabled_cogs", new_disabled if new_disabled else None)
+        
+        status = "enabled" if enabled else "disabled"
+        await ctx.send(f"✅ Module `{module}` has been **{status}** for this server.", ephemeral=True)
 
     @commands.Cog.listener()
     async def on_member_join(self, member):

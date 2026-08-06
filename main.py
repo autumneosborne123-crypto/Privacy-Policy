@@ -298,6 +298,10 @@ class FlowerBot(commands.Bot):
             embed.title = "⏳ Cooldown"
             embed.description = f"This command is on cooldown. Please try again in **{error.retry_after:.1f}s**."
             await ctx.send(embed=embed, ephemeral=True)
+        elif isinstance(error, commands.CheckFailure):
+            embed.title = "❌ Access Denied"
+            embed.description = "You do not have permission to use this command or it is disabled in this server."
+            await ctx.send(embed=embed, ephemeral=True)
         elif isinstance(error, commands.BotMissingPermissions):
             embed.title = "❌ Bot Missing Permissions"
             embed.description = f"I need the following permissions to perform this action: {', '.join(error.missing_permissions)}"
