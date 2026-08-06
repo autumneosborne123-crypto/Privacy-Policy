@@ -78,7 +78,7 @@ async def test_moderation_mute():
     ctx = MockCtx(bot, author, guild)
     
     print("--- Test: Mute (Timeout Only) ---")
-    await cog.mute.callback(cog, ctx, target, 10, "Spamming")
+    await cog.mute.callback(cog, ctx, target, "10", "Spamming")
     assert target.timeout_until is not None
     assert target.reason == "Spamming"
     assert any("timed out for 10 minutes" in m for m in ctx.sent_messages)
@@ -105,7 +105,7 @@ async def test_moderation_mute():
     target.roles = []
     target.timeout_until = None
     target.timed_out_until = None
-    await cog.mute.callback(cog, ctx, target, 5, "Double punishment")
+    await cog.mute.callback(cog, ctx, target, "5", "Double punishment")
     assert mute_role in target.roles
     assert target.timeout_until is not None
     assert any("timed out for 5 minutes" in m for m in ctx.sent_messages)
@@ -120,6 +120,17 @@ async def test_moderation_mute():
     assert any("timeout removed" in m for m in ctx.sent_messages)
     assert any("mute role removed" in m for m in ctx.sent_messages)
     print("Unmute Command: PASSED")
+
+    print("\n--- Test: Mute (1d duration) ---")
+    ctx.sent_messages = []
+    target.roles = []
+    target.timeout_until = None
+    target.timed_out_until = None
+    await cog.mute.callback(cog, ctx, target, "1d", "Long mute")
+    assert target.timeout_until is not None
+    assert target.timeout_until == timedelta(minutes=1440)
+    assert any("timed out for 1 day" in m for m in ctx.sent_messages)
+    print("Mute 1d: PASSED")
     
     print("\nAll moderation tests passed!")
     if os.path.exists("test_mod.db"):

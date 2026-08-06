@@ -3,7 +3,54 @@ from discord.ext import commands
 from discord import app_commands
 from datetime import timedelta
 import typing
+import re
 from utils.permissions import is_admin, is_staff
+
+def parse_duration(duration: typing.Union[str, int]) -> int:
+    """Parses a duration string like '1d', '3h', '10m' into minutes."""
+    if duration is None:
+        return None
+    
+    if isinstance(duration, int):
+        return duration
+    
+    duration = str(duration).lower().strip()
+    if not duration:
+        return None
+    
+    if duration.isdigit():
+        return int(duration)
+    
+    match = re.match(r'^(\d+)([dhwm]?)$', duration)
+    if not match:
+        raise ValueError(f"Invalid duration format: {duration}")
+    
+    value, unit = match.groups()
+    value = int(value)
+    
+    if unit == 'd':
+        return value * 1440
+    elif unit == 'h':
+        return value * 60
+    elif unit == 'w':
+        return value * 10080
+    else: # 'm' or empty
+        return value
+
+def format_duration(minutes: int) -> str:
+    """Formats minutes into a human-readable string."""
+    if minutes is None:
+        return "Indefinite"
+    if minutes >= 10080 and minutes % 10080 == 0:
+        weeks = minutes // 10080
+        return f"{weeks} week{'s' if weeks > 1 else ''}"
+    if minutes >= 1440 and minutes % 1440 == 0:
+        days = minutes // 1440
+        return f"{days} day{'s' if days > 1 else ''}"
+    if minutes >= 60 and minutes % 60 == 0:
+        hours = minutes // 60
+        return f"{hours} hour{'s' if hours > 1 else ''}"
+    return f"{minutes} minute{'s' if minutes != 1 else ''}"
 
 class Moderation(commands.Cog):
     def __init__(self, bot):
@@ -15,23 +62,37 @@ class Moderation(commands.Cog):
         except:
             pass
 
-    async def _do_timeout(self, ctx, member: discord.Member, minutes: int, reason: str):
+    async def _do_timeout(self, ctx, member: discord.Member, duration: str, reason: str):
+        try:
+            minutes = parse_duration(duration)
+        except ValueError as e:
+            return await ctx.send(f"❌ {e}")
+
         if minutes > 40320: # 28 days
             return await ctx.send("❌ Timeout duration cannot exceed 28 days (40,320 minutes).")
+        
+        duration_text = format_duration(minutes)
         try:
             await member.timeout(timedelta(minutes=minutes), reason=reason)
-            await ctx.send(f"✅ Successfully timed out {member.mention} for {minutes} minutes. Reason: {reason}")
-            await self.bot.log_action(ctx.guild, "Member Timeout", f"{member.mention} was timed out for {minutes} minutes.\n**Reason:** {reason}", color=0xffa500, moderator=ctx.author, user=member)
+            await ctx.send(f"✅ Successfully timed out {member.mention} for {duration_text}. Reason: {reason}")
+            await self.bot.log_action(ctx.guild, "Member Timeout", f"{member.mention} was timed out for {duration_text}.\n**Reason:** {reason}", color=0xffa500, moderator=ctx.author, user=member)
             
             # DM Notification
             embed = discord.Embed(title=f"⏳ You have been timed out in {ctx.guild.name}", color=0xffa500, timestamp=discord.utils.utcnow())
-            embed.add_field(name="Duration", value=f"{minutes} minutes")
+            embed.add_field(name="Duration", value=duration_text)
             embed.add_field(name="Reason", value=reason)
             await self._send_dm(member, embed)
         except Exception as e:
             await ctx.send(f"❌ Failed to timeout member: {e}")
 
-    async def _do_mute(self, ctx, member: discord.Member, minutes: int = None, reason: str = "No reason provided"):
+    async def _do_mute(self, ctx, member: discord.Member, duration: str = None, reason: str = "No reason provided"):
+        minutes = None
+        if duration:
+            try:
+                minutes = parse_duration(duration)
+            except ValueError as e:
+                return await ctx.send(f"❌ {e}")
+
         if minutes and minutes > 40320:
             return await ctx.send("❌ Mute duration (timeout) cannot exceed 28 days (40,320 minutes).")
         
@@ -39,12 +100,13 @@ class Moderation(commands.Cog):
         mute_role = ctx.guild.get_role(mute_role_id) if mute_role_id else None
         
         actions = []
+        duration_text = format_duration(minutes) if minutes else None
         
         # 1. Apply Timeout if minutes provided
         if minutes:
             try:
                 await member.timeout(timedelta(minutes=minutes), reason=reason)
-                actions.append(f"timed out for {minutes} minutes")
+                actions.append(f"timed out for {duration_text}")
             except Exception as e:
                 return await ctx.send(f"❌ Failed to timeout member: {e}")
         
@@ -70,20 +132,30 @@ class Moderation(commands.Cog):
         
         # DM Notification
         embed = discord.Embed(title=f"🔇 You have been muted in {ctx.guild.name}", color=0xffa500, timestamp=discord.utils.utcnow())
-        if minutes:
-            embed.add_field(name="Duration", value=f"{minutes} minutes")
+        if duration_text:
+            embed.add_field(name="Duration", value=duration_text)
         embed.add_field(name="Reason", value=reason)
         await self._send_dm(member, embed)
 
     @commands.hybrid_command(name="timeout", description="Timeout a member")
     @is_staff()
-    async def timeout(self, ctx, member: discord.Member, minutes: int, reason: str = "No reason provided"):
-        await self._do_timeout(ctx, member, minutes, reason)
+    @app_commands.choices(duration=[
+        app_commands.Choice(name="1 Day", value="1d"),
+        app_commands.Choice(name="3 Days", value="3d"),
+        app_commands.Choice(name="7 Days", value="7d")
+    ])
+    async def timeout(self, ctx, member: discord.Member, duration: str, reason: str = "No reason provided"):
+        await self._do_timeout(ctx, member, duration, reason)
 
     @commands.hybrid_command(name="mute", description="Mute a member (uses role and/or timeout)", aliases=["m"])
     @is_staff()
-    async def mute(self, ctx, member: discord.Member, minutes: int = None, reason: str = "No reason provided"):
-        await self._do_mute(ctx, member, minutes, reason)
+    @app_commands.choices(duration=[
+        app_commands.Choice(name="1 Day", value="1d"),
+        app_commands.Choice(name="3 Days", value="3d"),
+        app_commands.Choice(name="7 Days", value="7d")
+    ])
+    async def mute(self, ctx, member: discord.Member, duration: str = None, reason: str = "No reason provided"):
+        await self._do_mute(ctx, member, duration, reason)
 
     @commands.hybrid_command(name="unmute", description="Unmute a member (removes role and timeout)", aliases=["um"])
     @is_staff()
