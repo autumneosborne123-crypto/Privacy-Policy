@@ -80,7 +80,7 @@ class AnimalListView(discord.ui.View):
         if self.animals:
             first_animal_type = self.animals[0][1]
             if first_animal_type in self.cog.animals_data:
-                embed.set_thumbnail(url=self.cog.animals_data[first_animal_type]['image'])
+                embed.set_image(url=self.cog.animals_data[first_animal_type]['image'])
                 
         footer_text = f"Total: {len(self.animals)} animals"
         if self.animals:
@@ -234,6 +234,7 @@ class Adventure(commands.Cog):
 
     @commands.hybrid_command(name="animals", description="List your caught animals")
     async def animals(self, ctx, member: discord.Member = None):
+        await ctx.defer()
         member = member or ctx.author
         animals = await self.db.get_user_animals(member.id)
         
@@ -277,6 +278,7 @@ class Adventure(commands.Cog):
 
     @commands.hybrid_command(name="battle", description="Battle against another user or a wild animal")
     async def battle(self, ctx, member: discord.Member = None):
+        await ctx.defer()
         user_animals = await self.db.get_user_animals(ctx.author.id)
         if not user_animals:
             return await ctx.send("❌ You don't have any animals to battle with!", ephemeral=True)
@@ -318,10 +320,10 @@ class Adventure(commands.Cog):
         embed.add_field(name=f"🔺 {a_nick}", value=f"HP: {a_hp}/{attacker[6]}", inline=True)
         embed.add_field(name=f"🔻 {d_nick}", value=f"HP: {d_hp}/{defender[6]}", inline=True)
         
-        # Set thumbnail to defender's image
+        # Set image to defender's image for better visuals
         d_type = defender[1]
         if d_type in self.animals_data:
-            embed.set_thumbnail(url=self.animals_data[d_type]['image'])
+            embed.set_image(url=self.animals_data[d_type]['image'])
             
         msg = await ctx.send(embed=embed)
         
@@ -504,7 +506,7 @@ class Adventure(commands.Cog):
                 result_text += f"\n💖 Result: **{animal[2]}** recovered some HP!"
                 a_type = animal[1]
                 if a_type in self.animals_data:
-                    embed.set_thumbnail(url=self.animals_data[a_type]['image'])
+                    embed.set_image(url=self.animals_data[a_type]['image'])
         
         embed.description = result_text
         await ctx.send(embed=embed)
@@ -612,11 +614,21 @@ class Adventure(commands.Cog):
     @commands.hybrid_command(name="raid", description="Start a cooperative raid against a boss animal")
     @commands.bot_has_permissions(add_reactions=True, read_message_history=True)
     async def raid(self, ctx):
+        await ctx.defer()
         boss_id = "elder_dragon"
-        boss_data = {"name": "Elder Dragon Boss", "hp": 1000, "attack": 40, "defense": 30}
+        boss_data = {
+            "name": "Elder Dragon Boss", 
+            "hp": 1000, 
+            "attack": 40, 
+            "defense": 30,
+            "image": "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/384.py"
+        }
+        # Correct URL for Rayquaza: https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/384.png
+        boss_data["image"] = "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/384.png"
         
         embed = discord.Embed(title="🌋 RAID ALERT: Elder Dragon Appeared!", description="Multiple players can join forces to defeat this beast!", color=0x992d22)
         embed.add_field(name="Boss HP", value=f"❤️ {boss_data['hp']}")
+        embed.set_image(url=boss_data["image"])
         embed.set_footer(text="React with ⚔️ to join the raid! Starting in 30 seconds.")
         
         msg = await ctx.send(embed=embed)
