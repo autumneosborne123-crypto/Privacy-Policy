@@ -115,6 +115,7 @@ class TestAdvancedEdgeCases(unittest.IsolatedAsyncioTestCase):
         self.ctx.channel.mention = "#general"
         self.ctx.send = AsyncMock()
         self.ctx.prefix = "."
+        self.ctx.interaction = None
 
     async def asyncTearDown(self):
         if os.path.exists(self.db_path):

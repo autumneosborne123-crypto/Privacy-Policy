@@ -92,6 +92,7 @@ class TestModerationEdgeCases(unittest.IsolatedAsyncioTestCase):
         self.ctx.guild = self.guild
         self.ctx.author = self.author
         self.ctx.send = AsyncMock()
+        self.ctx.interaction = None
 
     async def asyncTearDown(self):
         if os.path.exists(self.db_path):

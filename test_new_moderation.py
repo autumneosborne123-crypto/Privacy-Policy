@@ -86,6 +86,7 @@ class MockCtx:
         self.guild = guild
         self.sent_messages = []
         self.deferred = False
+        self.interaction = None
 
     async def send(self, content=None, embed=None, ephemeral=False, delete_after=None):
         if content: self.sent_messages.append(content)

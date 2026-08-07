@@ -144,7 +144,7 @@ class Moderation(commands.Cog):
         app_commands.Choice(name="3 Days", value="3d"),
         app_commands.Choice(name="7 Days", value="7d")
     ])
-    async def timeout(self, ctx, member: discord.Member, duration: str, reason: str = "No reason provided"):
+    async def timeout(self, ctx, member: discord.Member, duration: str, *, reason: str = "No reason provided"):
         await self._do_timeout(ctx, member, duration, reason)
 
     @commands.hybrid_command(name="mute", description="Mute a member (uses role and/or timeout)", aliases=["m"])
@@ -154,12 +154,23 @@ class Moderation(commands.Cog):
         app_commands.Choice(name="3 Days", value="3d"),
         app_commands.Choice(name="7 Days", value="7d")
     ])
-    async def mute(self, ctx, member: discord.Member, duration: str = None, reason: str = "No reason provided"):
+    async def mute(self, ctx, member: discord.Member, duration: str = None, *, reason: str = "No reason provided"):
+        if duration and not ctx.interaction:
+            try:
+                parse_duration(duration)
+            except ValueError:
+                # Omitted duration, it's actually the start of the reason in a prefix command
+                if reason == "No reason provided":
+                    reason = duration
+                else:
+                    reason = f"{duration} {reason}"
+                duration = None
+        
         await self._do_mute(ctx, member, duration, reason)
 
     @commands.hybrid_command(name="unmute", description="Unmute a member (removes role and timeout)", aliases=["um"])
     @is_staff()
-    async def unmute(self, ctx, member: discord.Member, reason: str = "Unmuted by moderator"):
+    async def unmute(self, ctx, member: discord.Member, *, reason: str = "Unmuted by moderator"):
         try:
             mute_role_id = await self.bot.db.get_mute_role(ctx.guild.id)
             mute_role = ctx.guild.get_role(mute_role_id) if mute_role_id else None
@@ -196,7 +207,7 @@ class Moderation(commands.Cog):
     @commands.hybrid_command(name="ban", description="Ban a member")
     @is_staff()
     @commands.bot_has_permissions(ban_members=True)
-    async def ban(self, ctx, member: discord.Member, reason: str = "No reason provided"):
+    async def ban(self, ctx, member: discord.Member, *, reason: str = "No reason provided"):
         if ctx.guild.me.top_role <= member.top_role:
             return await ctx.send("❌ I cannot ban this member because their role is higher than or equal to mine.")
         if ctx.author.top_role <= member.top_role and ctx.author != ctx.guild.owner:
@@ -217,7 +228,7 @@ class Moderation(commands.Cog):
     @commands.hybrid_command(name="kick", description="Kick a member")
     @is_staff()
     @commands.bot_has_permissions(kick_members=True)
-    async def kick(self, ctx, member: discord.Member, reason: str = "No reason provided"):
+    async def kick(self, ctx, member: discord.Member, *, reason: str = "No reason provided"):
         if ctx.guild.me.top_role <= member.top_role:
             return await ctx.send("❌ I cannot kick this member because their role is higher than or equal to mine.")
         if ctx.author.top_role <= member.top_role and ctx.author != ctx.guild.owner:
@@ -238,7 +249,7 @@ class Moderation(commands.Cog):
     @commands.hybrid_command(name="unban", description="Unban a user")
     @is_staff()
     @commands.bot_has_permissions(ban_members=True)
-    async def unban(self, ctx, user: discord.User, reason: str = "No reason provided"):
+    async def unban(self, ctx, user: discord.User, *, reason: str = "No reason provided"):
         try:
             await ctx.guild.unban(user, reason=reason)
             await ctx.send(f"✅ Successfully unbanned {user.name}. Reason: {reason}")

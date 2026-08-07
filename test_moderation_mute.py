@@ -51,6 +51,7 @@ class MockCtx:
         self.author = author
         self.guild = guild
         self.sent_messages = []
+        self.interaction = None
 
     async def send(self, content, ephemeral=False, delete_after=None):
         self.sent_messages.append(content)
@@ -78,7 +79,7 @@ async def test_moderation_mute():
     ctx = MockCtx(bot, author, guild)
     
     print("--- Test: Mute (Timeout Only) ---")
-    await cog.mute.callback(cog, ctx, target, "10", "Spamming")
+    await cog.mute.callback(cog, ctx, target, "10", reason="Spamming")
     assert target.timeout_until is not None
     assert target.reason == "Spamming"
     assert any("timed out for 10 minutes" in m for m in ctx.sent_messages)
@@ -94,18 +95,18 @@ async def test_moderation_mute():
     target.timeout_until = None
     target.timed_out_until = None
     
-    await cog.mute.callback(cog, ctx, target, None, "Bad behavior")
+    await cog.mute.callback(cog, ctx, target, None, reason="Bad behavior")
     assert mute_role in target.roles
     assert target.timeout_until is None
     assert any("assigned <@&999> role" in m for m in ctx.sent_messages)
     print("Mute Role: PASSED")
-
+    
     print("\n--- Test: Mute (Both) ---")
     ctx.sent_messages = []
     target.roles = []
     target.timeout_until = None
     target.timed_out_until = None
-    await cog.mute.callback(cog, ctx, target, "5", "Double punishment")
+    await cog.mute.callback(cog, ctx, target, "5", reason="Double punishment")
     assert mute_role in target.roles
     assert target.timeout_until is not None
     assert any("timed out for 5 minutes" in m for m in ctx.sent_messages)
@@ -114,19 +115,19 @@ async def test_moderation_mute():
     
     print("\n--- Test: Unmute (Both) ---")
     ctx.sent_messages = []
-    await cog.unmute.callback(cog, ctx, target, "Good behavior")
+    await cog.unmute.callback(cog, ctx, target, reason="Good behavior")
     assert target.timeout_until is None
     assert mute_role not in target.roles
     assert any("timeout removed" in m for m in ctx.sent_messages)
     assert any("mute role removed" in m for m in ctx.sent_messages)
     print("Unmute Command: PASSED")
-
+    
     print("\n--- Test: Mute (1d duration) ---")
     ctx.sent_messages = []
     target.roles = []
     target.timeout_until = None
     target.timed_out_until = None
-    await cog.mute.callback(cog, ctx, target, "1d", "Long mute")
+    await cog.mute.callback(cog, ctx, target, "1d", reason="Long mute")
     assert target.timeout_until is not None
     assert target.timeout_until == timedelta(minutes=1440)
     assert any("timed out for 1 day" in m for m in ctx.sent_messages)
