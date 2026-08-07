@@ -10,8 +10,9 @@ class MockPermissions:
         self.embed_links = embed_links
 
 class MockChannel:
-    def __init__(self, id):
+    def __init__(self, id, guild=None):
         self.id = id
+        self.guild = guild
         self.sent_messages = []
 
     def permissions_for(self, member):
@@ -27,6 +28,8 @@ class MockGuild:
         self.name = "Test Guild"
         self.text_channels = []
         self.me = "bot"
+        self.me_obj = type('obj', (object,), {'top_role': type('obj', (object,), {'position': 10})})
+        self.me = self.me_obj # For permissions_for compatibility if needed
 
 class MockUser:
     def __init__(self, id, name):
@@ -49,7 +52,7 @@ async def test_audit_log():
     bot.db = db
     
     guild = MockGuild(123456789)
-    log_channel = MockChannel(987654321)
+    log_channel = MockChannel(987654321, guild=guild)
     
     # 1. Set log channel
     await db.set_log_channel(guild.id, log_channel.id)

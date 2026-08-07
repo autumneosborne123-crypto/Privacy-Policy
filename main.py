@@ -56,19 +56,36 @@ class DiscordLogHandler(logging.Handler):
         elif level >= logging.WARNING:
             color = 0xffa500
             
+        log_channels = []
+        
+        # 1. Collect per-guild log channels
         for guild in self.bot.guilds:
             channel = await self.bot.get_log_channel(guild)
-            if channel:
-                # Permission check for technical logs
-                permissions = channel.permissions_for(guild.me)
-                if not (permissions.view_channel and permissions.send_messages and permissions.embed_links):
-                    continue
+            if channel and channel not in log_channels:
+                log_channels.append(channel)
+        
+        # 2. Add master log channel from config
+        master_log_id = self.bot.config.get("master_log_channel_id")
+        if master_log_id:
+            master_channel = self.bot.get_channel(int(master_log_id))
+            if master_channel and master_channel not in log_channels:
+                log_channels.append(master_channel)
+
+        if not log_channels:
+            return
+
+        embed = discord.Embed(title="🤖 Bot Technical Log", description=f"```\n{message[:1900]}\n```", color=color, timestamp=discord.utils.utcnow())
+
+        for channel in log_channels:
+            # Permission check for technical logs
+            permissions = channel.permissions_for(channel.guild.me)
+            if not (permissions.view_channel and permissions.send_messages and permissions.embed_links):
+                continue
                     
-                try:
-                    embed = discord.Embed(title="🤖 Bot Technical Log", description=f"```\n{message[:1900]}\n```", color=color, timestamp=discord.utils.utcnow())
-                    await channel.send(embed=embed)
-                except:
-                    pass
+            try:
+                await channel.send(embed=embed)
+            except:
+                pass
 
 class HelpSelect(discord.ui.Select):
     def __init__(self, bot, prefix):
@@ -229,13 +246,21 @@ class FlowerBot(commands.Bot):
         return None
 
     async def log_action(self, guild, title, description, color=0x2b2d31, moderator=None, user=None):
-        channel = await self.get_log_channel(guild)
-        if not channel: return
+        log_channels = []
         
-        # Check for view, send and embed permissions to avoid 403 errors in logs
-        permissions = channel.permissions_for(guild.me)
-        if not (permissions.view_channel and permissions.send_messages and permissions.embed_links):
-            return
+        # 1. Get guild-specific log channel
+        guild_channel = await self.get_log_channel(guild)
+        if guild_channel:
+            log_channels.append(guild_channel)
+            
+        # 2. Get master log channel from config
+        master_log_id = self.config.get("master_log_channel_id")
+        if master_log_id:
+            master_channel = self.get_channel(int(master_log_id))
+            if master_channel and master_channel not in log_channels:
+                log_channels.append(master_channel)
+
+        if not log_channels: return
 
         embed = discord.Embed(title=title, description=description, color=color, timestamp=discord.utils.utcnow())
         if moderator:
@@ -245,10 +270,16 @@ class FlowerBot(commands.Bot):
             if hasattr(user, "display_avatar"):
                 embed.set_thumbnail(url=user.display_avatar.url)
         
-        try:
-            await channel.send(embed=embed)
-        except Exception as e:
-            logging.error(f"Failed to send log to channel {channel.id}: {e}")
+        for channel in log_channels:
+            # Check for view, send and embed permissions to avoid 403 errors
+            permissions = channel.permissions_for(channel.guild.me)
+            if not (permissions.view_channel and permissions.send_messages and permissions.embed_links):
+                continue
+                
+            try:
+                await channel.send(embed=embed)
+            except Exception as e:
+                logging.error(f"Failed to send log to channel {channel.id}: {e}")
 
     async def on_ready(self):
         if not hasattr(self, 'start_time'):

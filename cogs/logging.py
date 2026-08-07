@@ -41,6 +41,14 @@ class Logging(commands.Cog):
         enabled = await self.bot.db.get_guild_setting(member.guild.id, "log_member_leave")
         if enabled == 0: return
         
+        # Check if they were kicked recently to avoid duplicate logs
+        try:
+            async for entry in member.guild.audit_logs(limit=1, action=discord.AuditLogAction.kick):
+                if entry.target.id == member.id and (discord.utils.utcnow() - entry.created_at).total_seconds() < 5:
+                    return # Handled by audit log listener
+        except:
+            pass
+
         description = f"{member.mention} left the server."
         await self.bot.log_action(member.guild, "Member Left", description, color=0xe74c3c, user=member)
 
@@ -63,21 +71,106 @@ class Logging(commands.Cog):
             description = f"**Nickname Changed**\n**Before:** {before.nick}\n**After:** {after.nick}"
             await self.bot.log_action(before.guild, "Nickname Updated", description, color=0x3498db, user=before)
 
-    @commands.Cog.listener()
-    async def on_guild_role_create(self, role):
-        await self.bot.log_action(role.guild, "Role Created", f"Role: {role.mention} ({role.name})", color=0x2ecc71)
 
     @commands.Cog.listener()
-    async def on_guild_role_delete(self, role):
-        await self.bot.log_action(role.guild, "Role Deleted", f"Role: {role.name}", color=0xe74c3c)
+    async def on_audit_log_entry_create(self, entry):
+        guild = entry.guild
+        action = entry.action
+        moderator = entry.user
+        target = entry.target
+        
+        # Mapping action types to human-readable text and colors
+        action_map = {
+            discord.AuditLogAction.ban: ("Member Banned", 0xff0000),
+            discord.AuditLogAction.unban: ("Member Unbanned", 0x00ff00),
+            discord.AuditLogAction.kick: ("Member Kicked", 0xe67e22),
+            discord.AuditLogAction.member_update: ("Member Updated", 0x3498db),
+            discord.AuditLogAction.guild_update: ("Server Updated", 0x3498db),
+            discord.AuditLogAction.channel_create: ("Channel Created", 0x2ecc71),
+            discord.AuditLogAction.channel_delete: ("Channel Deleted", 0xe74c3c),
+            discord.AuditLogAction.channel_update: ("Channel Updated", 0x3498db),
+            discord.AuditLogAction.role_create: ("Role Created", 0x2ecc71),
+            discord.AuditLogAction.role_delete: ("Role Deleted", 0xe74c3c),
+            discord.AuditLogAction.role_update: ("Role Updated", 0x3498db),
+            discord.AuditLogAction.invite_create: ("Invite Created", 0x2ecc71),
+            discord.AuditLogAction.invite_delete: ("Invite Deleted", 0xe74c3c),
+            discord.AuditLogAction.webhook_create: ("Webhook Created", 0x2ecc71),
+            discord.AuditLogAction.webhook_delete: ("Webhook Deleted", 0xe74c3c),
+            discord.AuditLogAction.webhook_update: ("Webhook Updated", 0x3498db),
+            discord.AuditLogAction.emoji_create: ("Emoji Created", 0x2ecc71),
+            discord.AuditLogAction.emoji_delete: ("Emoji Deleted", 0xe74c3c),
+            discord.AuditLogAction.emoji_update: ("Emoji Updated", 0x3498db),
+            discord.AuditLogAction.sticker_create: ("Sticker Created", 0x2ecc71),
+            discord.AuditLogAction.sticker_delete: ("Sticker Deleted", 0xe74c3c),
+            discord.AuditLogAction.sticker_update: ("Sticker Updated", 0x3498db),
+            discord.AuditLogAction.thread_create: ("Thread Created", 0x2ecc71),
+            discord.AuditLogAction.thread_delete: ("Thread Deleted", 0xe74c3c),
+            discord.AuditLogAction.thread_update: ("Thread Updated", 0x3498db),
+            discord.AuditLogAction.bot_add: ("Bot Added", 0x2ecc71),
+        }
 
-    @commands.Cog.listener()
-    async def on_guild_channel_create(self, channel):
-        await self.bot.log_action(channel.guild, "Channel Created", f"Channel: {channel.mention} ({channel.name})", color=0x2ecc71)
+        if action not in action_map:
+            return
 
-    @commands.Cog.listener()
-    async def on_guild_channel_delete(self, channel):
-        await self.bot.log_action(channel.guild, "Channel Deleted", f"Channel: {channel.name}", color=0xe74c3c)
+        title, color = action_map[action]
+        
+        # Check if enabled for this guild (excluding master channel which gets everything)
+        # For per-guild logs, we check specific settings
+        setting_key = None
+        if action == discord.AuditLogAction.ban: setting_key = "log_member_ban"
+        elif action == discord.AuditLogAction.unban: setting_key = "log_member_unban"
+        elif action == discord.AuditLogAction.kick: setting_key = "log_member_leave"
+        
+        # If no specific setting, we still log to master but might skip guild channel
+        # But wait, log_action handles both. So we just need to decide if we call it.
+        # The user wants ALL logs in the master channel.
+        
+        description = ""
+        user_obj = None
+        
+        if action in [discord.AuditLogAction.ban, discord.AuditLogAction.unban, discord.AuditLogAction.kick]:
+            description = f"**User:** {target.mention if hasattr(target, 'mention') else target} ({getattr(target, 'id', 'N/A')})\n"
+            description += f"**Reason:** {entry.reason or 'No reason provided'}"
+            user_obj = target
+        elif action == discord.AuditLogAction.member_update:
+            # Only log important member updates like timeouts
+            if hasattr(entry.before, 'timed_out_until') and hasattr(entry.after, 'timed_out_until'):
+                if entry.before.timed_out_until != entry.after.timed_out_until:
+                    title = "Member Timeout Updated"
+                    description = f"**User:** {target.mention} ({target.id})\n"
+                    if entry.after.timed_out_until:
+                        description += f"**Timed out until:** {discord.utils.format_dt(entry.after.timed_out_until)}\n"
+                    else:
+                        description += "**Timeout removed.**\n"
+                    description += f"**Reason:** {entry.reason or 'No reason provided'}"
+                    user_obj = target
+                else:
+                    return # Ignore other member updates for now to avoid spam
+            else:
+                return
+        else:
+            if hasattr(target, 'mention'):
+                description = f"**Target:** {target.mention} ({target.id})\n"
+            else:
+                description = f"**Target:** {target} ({getattr(target, 'id', 'N/A')})\n"
+
+        # Add changes for updates
+        if entry.after:
+            changes = []
+            try:
+                for attr, value in entry.after:
+                    before_val = getattr(entry.before, attr, "None")
+                    changes.append(f"• **{attr.replace('_', ' ').title()}**: `{before_val}` → `{value}`")
+            except:
+                pass
+                
+            if changes:
+                # Avoid adding changes to Ban/Kick/Unban as they have specific descriptions
+                if action not in [discord.AuditLogAction.ban, discord.AuditLogAction.unban, discord.AuditLogAction.kick]:
+                    if description: description += "\n"
+                    description += "**Changes:**\n" + "\n".join(changes[:10])
+
+        await self.bot.log_action(guild, title, description, color=color, moderator=moderator, user=user_obj)
 
     @commands.Cog.listener()
     async def on_voice_state_update(self, member, before, after):
@@ -97,50 +190,6 @@ class Logging(commands.Cog):
             
             await self.bot.log_action(member.guild, "Voice Activity", description, color=color, user=member)
             
-    @commands.Cog.listener()
-    async def on_member_ban(self, guild, user):
-        enabled = await self.bot.db.get_guild_setting(guild.id, "log_member_ban")
-        if enabled == 0: return
-        
-        # Try to find the ban reason from audit logs
-        reason = "No reason provided"
-        moderator = None
-        try:
-            async for entry in guild.audit_logs(limit=5, action=discord.AuditLogAction.ban):
-                if entry.target.id == user.id:
-                    reason = entry.reason or "No reason provided"
-                    moderator = entry.user
-                    break
-        except:
-            pass
-            
-        description = f"**{user.name}** was banned from the server."
-        if reason:
-            description += f"\n**Reason:** {reason}"
-            
-        await self.bot.log_action(guild, "Member Banned", description, color=0xff0000, user=user, moderator=moderator)
-
-    @commands.Cog.listener()
-    async def on_member_unban(self, guild, user):
-        enabled = await self.bot.db.get_guild_setting(guild.id, "log_member_unban")
-        if enabled == 0: return
-        
-        reason = "No reason provided"
-        moderator = None
-        try:
-            async for entry in guild.audit_logs(limit=5, action=discord.AuditLogAction.unban):
-                if entry.target.id == user.id:
-                    reason = entry.reason or "No reason provided"
-                    moderator = entry.user
-                    break
-        except:
-            pass
-
-        description = f"**{user.name}** was unbanned from the server."
-        if reason:
-            description += f"\n**Reason:** {reason}"
-
-        await self.bot.log_action(guild, "Member Unbanned", description, color=0x00ff00, user=user, moderator=moderator)
 
 async def setup(bot):
     await bot.add_cog(Logging(bot))
