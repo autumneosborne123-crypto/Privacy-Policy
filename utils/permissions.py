@@ -44,7 +44,7 @@ def is_staff():
             return True
         
         # Check for role names (case-insensitive, including user-specified ones)
-        target_roles = ["sr.mod", "admin", "head admin", "co-owner", "adminstator", "administrator"]
+        target_roles = ["sr.mod", "admin", "head admin", "co-owner", "administrator", "moderator", "mod", "staff"]
         for role in ctx.author.roles:
             if role.name.lower() in target_roles:
                 return True

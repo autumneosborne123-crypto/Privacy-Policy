@@ -5,6 +5,27 @@ import aiohttp
 import random
 import logging
 
+class CharacterClaimView(discord.ui.View):
+    def __init__(self, bot, name, img_url, site_url):
+        super().__init__(timeout=30)
+        self.bot = bot
+        self.name = name
+        self.img_url = img_url
+        self.site_url = site_url
+        self.claimed = False
+
+    @discord.ui.button(label="Claim", style=discord.ButtonStyle.success, emoji="💖")
+    async def claim(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if self.claimed:
+            return await interaction.response.send_message("❌ This character has already been claimed!", ephemeral=True)
+            
+        await self.bot.db.add_claimed_character(interaction.user.id, self.name, self.img_url, self.site_url)
+        self.claimed = True
+        button.disabled = True
+        button.label = f"Claimed by {interaction.user.name}"
+        await interaction.response.edit_message(view=self)
+        await interaction.followup.send(f"💕 **{interaction.user.name}** claimed **{self.name}**!")
+
 class Games(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -61,11 +82,11 @@ class Games(commands.Cog):
         game = games.TypeRacer()
         await game.start(ctx)
 
-    @commands.hybrid_command(name="character", aliases=["wa", "ha", "rollchar"], description="Roll for a random anime character (Mudae-style)")
+    @commands.hybrid_command(name="character", aliases=["wa", "ha", "rollchar"], description="Roll for a random anime character and claim them!")
+    @commands.cooldown(1, 10, commands.BucketType.user)
     async def character(self, ctx):
         await ctx.defer()
-        # Anilist has ~170,000 characters. We pick a random page.
-        # We use a large range to cover the "over 140,000" requirement.
+        # Anilist has ~170,000 characters.
         random_page = random.randint(1, 150000) 
         query = """
         query ($page: Int) {
@@ -109,9 +130,31 @@ class Games(commands.Cog):
                     embed.url = char['siteUrl']
                     embed.set_footer(text=f"Mudae-style Roll | Database: 170,000+ characters")
                     
-                    await ctx.send(embed=embed)
+                    view = CharacterClaimView(self.bot, name, img_url, char['siteUrl'])
+                    await ctx.send(embed=embed, view=view)
                 else:
                     await ctx.send("❌ Failed to fetch character from Anilist.")
+
+    @commands.hybrid_command(name="harem", aliases=["gallery", "mychars"], description="View your claimed characters")
+    async def harem(self, ctx, member: discord.Member = None):
+        member = member or ctx.author
+        await ctx.defer()
+        chars = await self.bot.db.get_claimed_characters(member.id)
+        
+        if not chars:
+            return await ctx.send(f"💔 **{member.display_name}** hasn't claimed any characters yet.")
+            
+        embed = discord.Embed(title=f"💕 {member.display_name}'s Harem", color=0xffb6c1)
+        description = ""
+        for i, (name, img, url, ts) in enumerate(chars[:10], 1):
+            description += f"{i}. [{name}]({url})\n"
+            
+        embed.description = description or "No characters."
+        if chars:
+            embed.set_thumbnail(url=chars[0][1])
+            
+        embed.set_footer(text=f"Total: {len(chars)} characters")
+        await ctx.send(embed=embed)
 
     @commands.hybrid_command(name="trivia_pro", description="Play trivia with over 150,000 questions")
     async def trivia_pro(self, ctx):

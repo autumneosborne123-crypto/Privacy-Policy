@@ -50,6 +50,8 @@ class Database:
                              (user_id TEXT, quest_id TEXT, progress INTEGER DEFAULT 0, goal INTEGER, reward_coins INTEGER, reward_item TEXT, completed BOOLEAN DEFAULT 0, PRIMARY KEY (user_id, quest_id))''')
             await db.execute('''CREATE TABLE IF NOT EXISTS playlists
                              (user_id TEXT, playlist_name TEXT, songs TEXT, PRIMARY KEY (user_id, playlist_name))''')
+            await db.execute('''CREATE TABLE IF NOT EXISTS claimed_characters
+                             (user_id TEXT, character_name TEXT, image_url TEXT, site_url TEXT, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (user_id, character_name))''')
             await db.execute('''CREATE TABLE IF NOT EXISTS guild_settings
                              (guild_id TEXT PRIMARY KEY, 
                               log_channel_id TEXT, 
@@ -670,3 +672,15 @@ class Database:
         async with aiosqlite.connect(self.db_path) as db:
             await db.execute("DELETE FROM playlists WHERE user_id = ? AND playlist_name = ?", (str(user_id), name))
             await db.commit()
+
+    # --- Character Methods ---
+    async def add_claimed_character(self, user_id, name, image_url, site_url):
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute("INSERT OR REPLACE INTO claimed_characters (user_id, character_name, image_url, site_url) VALUES (?, ?, ?, ?)",
+                          (str(user_id), name, image_url, site_url))
+            await db.commit()
+
+    async def get_claimed_characters(self, user_id):
+        async with aiosqlite.connect(self.db_path) as db:
+            async with db.execute("SELECT character_name, image_url, site_url, timestamp FROM claimed_characters WHERE user_id = ? ORDER BY timestamp DESC", (str(user_id),)) as cursor:
+                return await cursor.fetchall()

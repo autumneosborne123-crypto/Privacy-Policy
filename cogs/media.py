@@ -276,7 +276,7 @@ class Media(commands.Cog):
         
         media_config = self.bot.config.get("media_channels", {})
         if not media_config:
-            return await ctx.send("❌ Media channels not configured. Use `.help` to see how to set them up.", ephemeral=True)
+            return await ctx.send("❌ Media channels not configured.", ephemeral=True)
             
         mapping = {
             "female_pfp": "female-pfp",
@@ -302,16 +302,25 @@ class Media(commands.Cog):
         
         for config_key, internal_category in mapping.items():
             channel_id = media_config.get(config_key)
-            if not channel_id: continue
+            if not channel_id or channel_id == 0: continue
             
-            channel = self.bot.get_channel(channel_id)
+            channel = self.bot.get_channel(int(channel_id))
             if not channel:
-                results.append(f"❌ Channel not found for `{config_key}`")
-                continue
+                try:
+                    channel = await self.bot.fetch_channel(int(channel_id))
+                except:
+                    results.append(f"❌ Channel not found for `{config_key}`")
+                    continue
             
+            # Check permissions
+            permissions = channel.permissions_for(channel.guild.me)
+            if not (permissions.send_messages and permissions.embed_links):
+                results.append(f"❌ Missing permissions in {channel.mention}")
+                continue
+
             query = self.queries.get(internal_category)
             
-            # Special handling for banners to include variety of styles
+            # Special handling for banners
             if "banner" in internal_category.lower():
                 style = random.choice(self.banner_styles)
                 query = f"{style} discord banner"
@@ -349,7 +358,14 @@ class Media(commands.Cog):
             results.append(f"✅ Sent {sent_count} images to {channel.mention}")
             
         await status_msg.edit(content="🏁 **Auto-population complete!**\n" + "\n".join(results))
-        await self.bot.log_action(ctx.guild, "🖼️ Auto-Population", f"**{ctx.author}** triggered auto-population for media channels.\n" + "\n".join(results), color=0xffb6c1, moderator=ctx.author)
+        await self.bot.log_action(ctx.guild, "🖼️ Auto-Population", f"**{ctx.author}** triggered auto-population.\n" + "\n".join(results), color=0xffb6c1, moderator=ctx.author)
+
+    @commands.hybrid_command(name="avatar", aliases=["pfp", "av"], description="Show a member's avatar")
+    async def avatar(self, ctx, member: discord.Member = None):
+        member = member or ctx.author
+        embed = discord.Embed(title=f"Avatar of {member.name}", color=member.color)
+        embed.set_image(url=member.display_avatar.url)
+        await ctx.send(embed=embed)
 
     @commands.hybrid_group(name="media", aliases=["media_add"], description="Manage automatic media feeds (every 2 minutes)")
     @is_admin()

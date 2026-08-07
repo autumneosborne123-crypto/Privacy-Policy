@@ -417,7 +417,7 @@ class Adventure(commands.Cog):
         embed = discord.Embed(title="💊 Healed!", description=f"You used medicine on **{target_animal[2]}**. HP is now **{new_hp}/{target_animal[6]}**.", color=0x2ecc71)
         a_type = target_animal[1]
         if a_type in self.animals_data:
-            embed.set_thumbnail(url=self.animals_data[a_type]['image'])
+            embed.set_image(url=self.animals_data[a_type]['image'])
         await ctx.send(embed=embed)
 
     @commands.hybrid_command(name="train", description="Train your animal to gain XP")
@@ -463,7 +463,7 @@ class Adventure(commands.Cog):
         embed = discord.Embed(title="💪 Training Complete", description=msg, color=0x3498db)
         a_type = target_animal[1]
         if a_type in self.animals_data:
-            embed.set_thumbnail(url=self.animals_data[a_type]['image'])
+            embed.set_image(url=self.animals_data[a_type]['image'])
         await ctx.send(embed=embed)
 
     @commands.hybrid_command(name="explore", description="Explore the wild for random events and rewards")
@@ -539,7 +539,7 @@ class Adventure(commands.Cog):
         embed = discord.Embed(title="👼 Revived!", description=f"You used Revive on **{target_animal[2]}**! It's back to full HP.", color=0x9b59b6)
         a_type = target_animal[1]
         if a_type in self.animals_data:
-            embed.set_thumbnail(url=self.animals_data[a_type]['image'])
+            embed.set_image(url=self.animals_data[a_type]['image'])
         await ctx.send(embed=embed)
 
     @commands.hybrid_command(name="boost", description="Permanently boost an animal's stats using Protein Shake or Iron Shield")
@@ -577,7 +577,7 @@ class Adventure(commands.Cog):
             
         a_type = target_animal[1]
         if a_type in self.animals_data:
-            embed.set_thumbnail(url=self.animals_data[a_type]['image'])
+            embed.set_image(url=self.animals_data[a_type]['image'])
         await ctx.send(embed=embed)
 
     @commands.hybrid_command(name="quest", description="View your current quests")

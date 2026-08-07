@@ -68,6 +68,11 @@ class DiscordLogHandler(logging.Handler):
         master_log_id = self.bot.config.get("master_log_channel_id")
         if master_log_id:
             master_channel = self.bot.get_channel(int(master_log_id))
+            if not master_channel:
+                try:
+                    master_channel = await self.bot.fetch_channel(int(master_log_id))
+                except:
+                    pass
             if master_channel and master_channel not in log_channels:
                 log_channels.append(master_channel)
 
@@ -257,6 +262,11 @@ class FlowerBot(commands.Bot):
         master_log_id = self.config.get("master_log_channel_id")
         if master_log_id:
             master_channel = self.get_channel(int(master_log_id))
+            if not master_channel:
+                try:
+                    master_channel = await self.fetch_channel(int(master_log_id))
+                except:
+                    pass
             if master_channel and master_channel not in log_channels:
                 log_channels.append(master_channel)
 
