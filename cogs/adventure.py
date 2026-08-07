@@ -723,7 +723,13 @@ class Adventure(commands.Cog):
         
         animal_id = target_animal[0]
         await self.db.update_animal(animal_id, {"user_id": str(member.id)})
-        await ctx.send(f"🎁 You gifted **{target_animal[2]}** to {member.mention}!")
+        
+        embed = discord.Embed(title="🎁 Animal Gifted!", description=f"You gifted **{target_animal[2]}** to {member.mention}!", color=0x9b59b6)
+        a_type = target_animal[1]
+        if a_type in self.animals_data:
+            embed.set_image(url=self.animals_data[a_type]['image'])
+        
+        await ctx.send(embed=embed)
         await self.bot.log_action(ctx.guild, "Animal Gifted", f"**{ctx.author}** gifted **{target_animal[2]}** (ID: {animal_id}) to **{member}**.", color=0x9b59b6, moderator=ctx.author, user=member)
         
         # Achievement for trading
@@ -760,7 +766,13 @@ class Adventure(commands.Cog):
             return await ctx.send("❌ The animal is no longer in the owner's collection.")
 
         await self.db.update_animal(target_animal[0], {"user_id": str(member.id)})
-        await ctx.send(f"🤝 Trade complete! {member.mention} now owns **{target_animal[2]}**!")
+        
+        embed = discord.Embed(title="🤝 Trade Complete!", description=f"{member.mention} now owns **{target_animal[2]}**!", color=0x2ecc71)
+        a_type = target_animal[1]
+        if a_type in self.animals_data:
+            embed.set_image(url=self.animals_data[a_type]['image'])
+            
+        await ctx.send(embed=embed)
         self.bot.dispatch("trade_complete", ctx.author.id)
 
     @commands.hybrid_command(name="nickname", description="Give a nickname to your animal")
@@ -779,7 +791,13 @@ class Adventure(commands.Cog):
             return await ctx.send(f"❌ Animal not found.")
             
         await self.db.update_animal(target_animal[0], {"nickname": new_name})
-        await ctx.send(f"✅ Your animal is now named **{new_name}**!")
+        
+        embed = discord.Embed(title="✅ Nickname Updated", description=f"Your animal is now named **{new_name}**!", color=0x2ecc71)
+        a_type = target_animal[1]
+        if a_type in self.animals_data:
+            embed.set_image(url=self.animals_data[a_type]['image'])
+            
+        await ctx.send(embed=embed)
 
 async def setup(bot):
     await bot.add_cog(Adventure(bot))
