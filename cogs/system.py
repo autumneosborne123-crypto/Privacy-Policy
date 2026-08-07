@@ -35,5 +35,14 @@ class System(commands.Cog):
         except Exception as e:
             await ctx.send(f"❌ Failed to unload {extension}: {e}")
 
+    @commands.command(name="sync")
+    @is_admin()
+    async def sync(self, ctx):
+        try:
+            fmt = await self.bot.tree.sync()
+            await ctx.send(f"✅ Synced {len(fmt)} commands to current guild.")
+        except Exception as e:
+            await ctx.send(f"❌ Failed to sync: {e}")
+
 async def setup(bot):
     await bot.add_cog(System(bot))

@@ -139,6 +139,7 @@ class Moderation(commands.Cog):
 
     @commands.hybrid_command(name="timeout", description="Timeout a member")
     @is_staff()
+    @app_commands.describe(member="The member to timeout", duration="Duration (e.g. 1d, 3d, 7d)", reason="Reason for the timeout")
     @app_commands.choices(duration=[
         app_commands.Choice(name="1 Day", value="1d"),
         app_commands.Choice(name="3 Days", value="3d"),
@@ -149,6 +150,7 @@ class Moderation(commands.Cog):
 
     @commands.hybrid_command(name="mute", description="Mute a member (uses role and/or timeout)", aliases=["m"])
     @is_staff()
+    @app_commands.describe(member="The member to mute", duration="Duration (e.g. 1d, 3d, 7d)", reason="Reason for the mute")
     @app_commands.choices(duration=[
         app_commands.Choice(name="1 Day", value="1d"),
         app_commands.Choice(name="3 Days", value="3d"),
