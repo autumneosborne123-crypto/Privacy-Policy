@@ -74,7 +74,13 @@ class DiscordLogHandler(logging.Handler):
                 except:
                     pass
             if master_channel and master_channel not in log_channels:
-                log_channels.append(master_channel)
+                # Permission check for master channel
+                try:
+                    permissions = master_channel.permissions_for(master_channel.guild.me)
+                    if permissions.view_channel and permissions.send_messages and permissions.embed_links:
+                        log_channels.append(master_channel)
+                except:
+                    pass
 
         if not log_channels:
             return
@@ -240,35 +246,63 @@ class FlowerBot(commands.Bot):
     async def get_log_channel(self, guild):
         if not guild: return None
         log_channel_id = await self.db.get_log_channel(guild.id)
+        channel = None
         if log_channel_id:
-            channel = self.get_channel(log_channel_id)
-            if channel: return channel
+            channel = self.get_channel(int(log_channel_id))
+            if not channel:
+                try:
+                    channel = await self.fetch_channel(int(log_channel_id))
+                except:
+                    pass
         
-        # Fallback to "flower-log" or "flower-logs" or "flower logs" channel
+        # Verify permissions if we found a channel
+        if channel:
+            try:
+                permissions = channel.permissions_for(guild.me)
+                if permissions.view_channel and permissions.send_messages and permissions.embed_links:
+                    return channel
+            except:
+                pass
+        
+        # Fallback to "flower-log" or "flower-logs" or "flower logs" channel by name
         for name in ["flower-log", "flower-logs", "flower logs"]:
             channel = discord.utils.get(guild.text_channels, name=name)
-            if channel: return channel
+            if channel:
+                try:
+                    permissions = channel.permissions_for(guild.me)
+                    if permissions.view_channel and permissions.send_messages and permissions.embed_links:
+                        return channel
+                except:
+                    pass
         return None
 
-    async def log_action(self, guild, title, description, color=0x2b2d31, moderator=None, user=None):
+    async def log_action(self, guild, title, description, color=0x2b2d31, moderator=None, user=None, guild_only=False, master_only=False):
         log_channels = []
         
         # 1. Get guild-specific log channel
-        guild_channel = await self.get_log_channel(guild)
-        if guild_channel:
-            log_channels.append(guild_channel)
+        if not master_only:
+            guild_channel = await self.get_log_channel(guild)
+            if guild_channel:
+                log_channels.append(guild_channel)
             
         # 2. Get master log channel from config
-        master_log_id = self.config.get("master_log_channel_id")
-        if master_log_id:
-            master_channel = self.get_channel(int(master_log_id))
-            if not master_channel:
-                try:
-                    master_channel = await self.fetch_channel(int(master_log_id))
-                except:
-                    pass
-            if master_channel and master_channel not in log_channels:
-                log_channels.append(master_channel)
+        if not guild_only:
+            master_log_id = self.config.get("master_log_channel_id")
+            if master_log_id:
+                master_channel = self.get_channel(int(master_log_id))
+                if not master_channel:
+                    try:
+                        master_channel = await self.fetch_channel(int(master_log_id))
+                    except:
+                        pass
+                if master_channel and master_channel not in log_channels:
+                    # Permission check for master channel
+                    try:
+                        permissions = master_channel.permissions_for(master_channel.guild.me)
+                        if permissions.view_channel and permissions.send_messages and permissions.embed_links:
+                            log_channels.append(master_channel)
+                    except:
+                        pass
 
         if not log_channels: return
 

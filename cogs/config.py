@@ -103,7 +103,30 @@ class ConfigCog(commands.Cog, name="Config"):
         
         # Logs
         log_chan_id = settings.get("log_channel_id")
-        log_chan = self.bot.get_channel(int(log_chan_id)) if log_chan_id else None
+        log_chan = None
+        if log_chan_id:
+            log_chan = self.bot.get_channel(int(log_chan_id))
+            if not log_chan:
+                try: log_chan = await self.bot.fetch_channel(int(log_chan_id))
+                except: pass
+        
+        log_status = ""
+        if log_chan:
+            log_status = log_chan.mention
+            # Permission check
+            perms = log_chan.permissions_for(ctx.guild.me)
+            if not (perms.view_channel and perms.send_messages and perms.embed_links):
+                log_status += " ⚠️ **(Missing Permissions)**"
+        else:
+            log_status = "None"
+            # Try to see if fallback by name would work
+            channels = getattr(ctx.guild, "text_channels", [])
+            if isinstance(channels, list):
+                for name in ["flower-log", "flower-logs", "flower logs"]:
+                    fb = discord.utils.get(channels, name=name)
+                    if fb and hasattr(fb, "mention"):
+                        log_status += f"\n*(Found {fb.mention} by name)*"
+                        break
         
         log_settings = []
         if settings.get('log_message_delete') != 0: log_settings.append("Del")
@@ -114,7 +137,7 @@ class ConfigCog(commands.Cog, name="Config"):
         if settings.get('log_member_unban') != 0: log_settings.append("Unban")
         if settings.get('log_voice_activity') != 0: log_settings.append("Voice")
         
-        log_info = f"**Channel:** {log_chan.mention if log_chan else 'None'}"
+        log_info = f"**Channel:** {log_status}"
         if log_settings: log_info += f"\n**Active:** {', '.join(log_settings)}"
         else: log_info += "\n**Active:** None"
         

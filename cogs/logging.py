@@ -12,10 +12,10 @@ class Logging(commands.Cog):
         if not message.guild or message.author.bot: return
         
         enabled = await self.bot.db.get_guild_setting(message.guild.id, "log_message_delete")
-        if enabled == 0: return
+        master_only = (enabled == 0)
 
         description = f"**Message sent by {message.author.mention} deleted in {message.channel.mention}**\n{message.content}"
-        await self.bot.log_action(message.guild, "Message Deleted", description, color=0xff4b4b, user=message.author)
+        await self.bot.log_action(message.guild, "Message Deleted", description, color=0xff4b4b, user=message.author, master_only=master_only)
 
     @commands.Cog.listener()
     async def on_message_edit(self, before, after):
@@ -23,34 +23,35 @@ class Logging(commands.Cog):
         if before.content == after.content: return
         
         enabled = await self.bot.db.get_guild_setting(before.guild.id, "log_message_edit")
-        if enabled == 0: return
+        master_only = (enabled == 0)
 
         description = f"**Message edited in {before.channel.mention}** [Jump to Message]({after.jump_url})\n\n**Before:**\n{before.content}\n\n**After:**\n{after.content}"
-        await self.bot.log_action(before.guild, "Message Edited", description, color=0x3498db, user=before.author)
+        await self.bot.log_action(before.guild, "Message Edited", description, color=0x3498db, user=before.author, master_only=master_only)
 
     @commands.Cog.listener()
     async def on_member_join(self, member):
         enabled = await self.bot.db.get_guild_setting(member.guild.id, "log_member_join")
-        if enabled == 0: return
+        master_only = (enabled == 0)
         
         description = f"{member.mention} joined the server.\n**Account Created:** {discord.utils.format_dt(member.created_at, 'R')}"
-        await self.bot.log_action(member.guild, "Member Joined", description, color=0x2ecc71, user=member)
+        await self.bot.log_action(member.guild, "Member Joined", description, color=0x2ecc71, user=member, master_only=master_only)
 
     @commands.Cog.listener()
     async def on_member_remove(self, member):
         enabled = await self.bot.db.get_guild_setting(member.guild.id, "log_member_leave")
-        if enabled == 0: return
+        master_only = (enabled == 0)
         
         # Check if they were kicked recently to avoid duplicate logs
-        try:
-            async for entry in member.guild.audit_logs(limit=1, action=discord.AuditLogAction.kick):
-                if entry.target.id == member.id and (discord.utils.utcnow() - entry.created_at).total_seconds() < 5:
-                    return # Handled by audit log listener
-        except:
-            pass
+        if not master_only:
+            try:
+                async for entry in member.guild.audit_logs(limit=1, action=discord.AuditLogAction.kick):
+                    if entry.target.id == member.id and (discord.utils.utcnow() - entry.created_at).total_seconds() < 5:
+                        return # Handled by audit log listener
+            except:
+                pass
 
         description = f"{member.mention} left the server."
-        await self.bot.log_action(member.guild, "Member Left", description, color=0xe74c3c, user=member)
+        await self.bot.log_action(member.guild, "Member Left", description, color=0xe74c3c, user=member, master_only=master_only)
 
     @commands.Cog.listener()
     async def on_member_update(self, before, after):
@@ -114,17 +115,21 @@ class Logging(commands.Cog):
 
         title, color = action_map[action]
         
-        # Check if enabled for this guild (excluding master channel which gets everything)
-        # For per-guild logs, we check specific settings
+        # Check toggle settings for guild log
         setting_key = None
         if action == discord.AuditLogAction.ban: setting_key = "log_member_ban"
         elif action == discord.AuditLogAction.unban: setting_key = "log_member_unban"
         elif action == discord.AuditLogAction.kick: setting_key = "log_member_leave"
         
-        # If no specific setting, we still log to master but might skip guild channel
-        # But wait, log_action handles both. So we just need to decide if we call it.
-        # The user wants ALL logs in the master channel.
+        guild_only = False
+        master_only = False
         
+        if setting_key:
+            enabled = await self.bot.db.get_guild_setting(guild.id, setting_key)
+            if enabled == 0:
+                # Disabled for guild, only log to master
+                master_only = True
+
         description = ""
         user_obj = None
         
@@ -170,13 +175,13 @@ class Logging(commands.Cog):
                     if description: description += "\n"
                     description += "**Changes:**\n" + "\n".join(changes[:10])
 
-        await self.bot.log_action(guild, title, description, color=color, moderator=moderator, user=user_obj)
+        await self.bot.log_action(guild, title, description, color=color, moderator=moderator, user=user_obj, master_only=master_only)
 
     @commands.Cog.listener()
     async def on_voice_state_update(self, member, before, after):
         if before.channel != after.channel:
             enabled = await self.bot.db.get_guild_setting(member.guild.id, "log_voice_activity")
-            if enabled == 0: return
+            master_only = (enabled == 0)
             
             if before.channel is None:
                 description = f"{member.mention} joined voice channel **{after.channel.name}**"
@@ -188,7 +193,7 @@ class Logging(commands.Cog):
                 description = f"{member.mention} moved from **{before.channel.name}** to **{after.channel.name}**"
                 color = 0x3498db
             
-            await self.bot.log_action(member.guild, "Voice Activity", description, color=color, user=member)
+            await self.bot.log_action(member.guild, "Voice Activity", description, color=color, user=member, master_only=master_only)
             
 
 async def setup(bot):
