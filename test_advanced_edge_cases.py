@@ -139,7 +139,7 @@ class TestAdvancedEdgeCases(unittest.IsolatedAsyncioTestCase):
     async def test_mute_no_role_no_duration(self):
         # Ensure no mute role is set
         await self.db.set_mute_role(self.guild.id, None)
-        await self.mod_cog.mute.callback(self.mod_cog, self.ctx, self.target, duration=None)
+        await self.mod_cog.mute.callback(self.mod_cog, self.ctx, self.target, minutes=None)
         self.ctx.send.assert_called()
         args, kwargs = self.ctx.send.call_args
         self.assertIn("no mute role configured", args[0])
