@@ -7,19 +7,20 @@ import re
 from utils.permissions import is_admin, is_staff, is_senior_staff
 
 def parse_duration(duration: typing.Union[str, int]) -> int:
-    """Parses a duration string like '1d', '3h', '10m' into minutes."""
+    """Parses a duration string like '1d', '3h', '10m' into minutes.
+    If no unit is specified, assumes days."""
     if duration is None:
         return None
     
     if isinstance(duration, int):
-        return duration
+        return duration * 1440
     
     duration = str(duration).lower().strip()
     if not duration:
         return None
     
     if duration.isdigit():
-        return int(duration)
+        return int(duration) * 1440
     
     match = re.match(r'^(\d+)([dhwm]?)$', duration)
     if not match:
@@ -34,8 +35,10 @@ def parse_duration(duration: typing.Union[str, int]) -> int:
         return value * 60
     elif unit == 'w':
         return value * 10080
-    else: # 'm' or empty
+    elif unit == 'm':
         return value
+    else: # Empty unit
+        return value * 1440
 
 def format_duration(minutes: int) -> str:
     """Formats minutes into a human-readable string."""
@@ -139,7 +142,7 @@ class Moderation(commands.Cog):
 
     @commands.hybrid_command(name="timeout", description="Timeout a member")
     @is_staff()
-    @app_commands.describe(member="The member to timeout", duration="Duration (e.g. 1d, 3d, 7d)", reason="Reason for the timeout")
+    @app_commands.describe(member="The member to timeout", duration="Duration in days (e.g. 1, 3, 7) or with units (1d, 3h, 10m)", reason="Reason for the timeout")
     @app_commands.choices(duration=[
         app_commands.Choice(name="1 Day", value="1d"),
         app_commands.Choice(name="3 Days", value="3d"),
@@ -150,7 +153,7 @@ class Moderation(commands.Cog):
 
     @commands.hybrid_command(name="mute", description="Mute a member (uses role and/or timeout)", aliases=["m"])
     @is_staff()
-    @app_commands.describe(member="The member to mute", duration="Duration (e.g. 1d, 3d, 7d)", reason="Reason for the mute")
+    @app_commands.describe(member="The member to mute", duration="Duration in days (e.g. 1, 3, 7) or with units (1d, 3h, 10m)", reason="Reason for the mute")
     @app_commands.choices(duration=[
         app_commands.Choice(name="1 Day", value="1d"),
         app_commands.Choice(name="3 Days", value="3d"),

@@ -82,7 +82,7 @@ async def test_moderation_mute():
     await cog.mute.callback(cog, ctx, target, "10", reason="Spamming")
     assert target.timeout_until is not None
     assert target.reason == "Spamming"
-    assert any("timed out for 10 minutes" in m for m in ctx.sent_messages)
+    assert any("timed out for 10 days" in m for m in ctx.sent_messages)
     print("Mute Timeout: PASSED")
     
     print("\n--- Test: Mute (Role Only) ---")
@@ -109,7 +109,7 @@ async def test_moderation_mute():
     await cog.mute.callback(cog, ctx, target, "5", reason="Double punishment")
     assert mute_role in target.roles
     assert target.timeout_until is not None
-    assert any("timed out for 5 minutes" in m for m in ctx.sent_messages)
+    assert any("timed out for 5 days" in m for m in ctx.sent_messages)
     assert any("assigned <@&999> role" in m for m in ctx.sent_messages)
     print("Mute Both: PASSED")
     

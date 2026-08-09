@@ -57,10 +57,20 @@ class TestBotFeatures(unittest.IsolatedAsyncioTestCase):
         mock_member = AsyncMock(spec=discord.Member)
         mock_member.name = "NaughtyUser"
         mock_member.mention = "@NaughtyUser"
-        await self.mod_cog.timeout.callback(self.mod_cog, mock_ctx, mock_member, 30, reason="Spamming")
+        await self.mod_cog.timeout.callback(self.mod_cog, mock_ctx, mock_member, "30m", reason="Spamming")
         mock_member.timeout.assert_called_once_with(timedelta(minutes=30), reason="Spamming")
         mock_ctx.send.assert_called_once()
         self.assertIn("Successfully timed out @NaughtyUser for 30 minutes", mock_ctx.send.call_args[0][0])
+
+    async def test_timeout_default_days(self):
+        mock_ctx = AsyncMock()
+        mock_member = AsyncMock(spec=discord.Member)
+        mock_member.name = "NaughtyUser"
+        mock_member.mention = "@NaughtyUser"
+        await self.mod_cog.timeout.callback(self.mod_cog, mock_ctx, mock_member, "1", reason="Spamming")
+        mock_member.timeout.assert_called_once_with(timedelta(minutes=1440), reason="Spamming")
+        mock_ctx.send.assert_called_once()
+        self.assertIn("Successfully timed out @NaughtyUser for 1 day", mock_ctx.send.call_args[0][0])
 
     async def test_timeout_zero_minutes(self):
         mock_ctx = AsyncMock()
