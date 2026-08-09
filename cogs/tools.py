@@ -258,6 +258,84 @@ class Tools(commands.Cog):
         view = EmbedBuilderView(self.bot, interaction.user)
         await interaction.response.send_message("Building your professional embed...", embed=view.embed, view=view, ephemeral=True)
 
+    @commands.hybrid_command(name="diagnose", description="Check if the bot has all required permissions in this server")
+    @commands.has_permissions(manage_guild=True)
+    async def diagnose(self, ctx):
+        """Perform a comprehensive diagnostic check of the bot's permissions."""
+        await ctx.defer()
+        guild = ctx.guild
+        me = guild.me
+        perms = me.guild_permissions
+        
+        # Categories and their required permissions
+        checks = {
+            "Core Features": {
+                "View Channels": perms.view_channel,
+                "Send Messages": perms.send_messages,
+                "Embed Links": perms.embed_links,
+                "Attach Files": perms.attach_files,
+                "External Emojis": perms.use_external_emojis,
+                "Read History": perms.read_message_history,
+                "Add Reactions": perms.add_reactions
+            },
+            "Moderation & Security": {
+                "Ban Members": perms.ban_members,
+                "Kick Members": perms.kick_members,
+                "Manage Messages": perms.manage_messages,
+                "Timeout Members": perms.moderate_members,
+                "Manage Roles": perms.manage_roles,
+                "View Audit Log": perms.view_audit_log,
+                "Manage Nicknames": perms.manage_nicknames
+            },
+            "Music & Tools": {
+                "Connect": perms.connect,
+                "Speak": perms.speak,
+                "Priority Speaker": perms.priority_speaker,
+                "Manage Webhooks": perms.manage_webhooks
+            }
+        }
+        
+        embed = discord.Embed(title=f"🔍 Diagnostic Report: {guild.name}", color=0x2b2d31)
+        embed.set_thumbnail(url=self.bot.user.display_avatar.url)
+        
+        for category, permissions in checks.items():
+            value = ""
+            for name, status in permissions.items():
+                icon = "✅" if status else "❌"
+                value += f"{icon} {name}\n"
+            embed.add_field(name=category, value=value, inline=True)
+            
+        # Logging specific check
+        log_chan = await self.bot.get_log_channel(guild)
+        log_status = "❌ Not Found"
+        if log_chan:
+            lp = log_chan.permissions_for(me)
+            if lp.view_channel and lp.send_messages and lp.embed_links:
+                log_status = f"✅ {log_chan.mention}"
+            else:
+                log_status = f"⚠️ {log_chan.mention} (Missing perms)"
+        embed.add_field(name="Logging System", value=log_status, inline=False)
+        
+        # Role Hierarchy check
+        top_role = me.top_role
+        hierarchy_info = f"Top Role: **{top_role.name}** (Pos: {top_role.position})"
+        if perms.administrator:
+            hierarchy_info += "\n👑 **Administrator enabled** (Full access)"
+        elif top_role.position == 1:
+            hierarchy_info += "\n⚠️ **Role is at bottom** (Cannot moderate anyone)"
+            
+        embed.add_field(name="Role Hierarchy", value=hierarchy_info, inline=False)
+        
+        # Summary footer
+        missing = sum(1 for cat in checks.values() for s in cat.values() if not s)
+        if missing == 0:
+            embed.description = "✨ All permissions are correctly configured! The bot should work perfectly."
+        else:
+            embed.description = f"⚠️ Found **{missing}** missing permissions. Some features may not work correctly."
+            embed.set_footer(text="Tip: Grant 'Administrator' or missing roles to fix these issues.")
+            
+        await ctx.send(embed=embed)
+
 class EmbedBuilderModal(ui.Modal, title="Interactive Embed Builder"):
     def __init__(self, bot):
         super().__init__()
