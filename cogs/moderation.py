@@ -161,22 +161,22 @@ class Moderation(commands.Cog):
 
     @commands.hybrid_command(name="timeout", description="Timeout a member")
     @is_staff()
-    @app_commands.describe(member="The member to timeout", duration="Duration in days (e.g. 1, 3, 7) or with units (1d, 3h, 10m)", reason="Reason for the timeout")
+    @app_commands.describe(member="The member to timeout", duration="Duration (e.g. 1d, 3d, 7d)", reason="Reason for the timeout")
     @app_commands.choices(duration=[
-        app_commands.Choice(name="1 Day", value="1d"),
-        app_commands.Choice(name="3 Days", value="3d"),
-        app_commands.Choice(name="7 Days", value="7d")
+        app_commands.Choice(name="1d", value="1d"),
+        app_commands.Choice(name="3d", value="3d"),
+        app_commands.Choice(name="7d", value="7d")
     ])
     async def timeout(self, ctx, member: discord.Member, duration: str, *, reason: str = "No reason provided"):
         await self._do_timeout(ctx, member, duration, reason)
 
     @commands.hybrid_command(name="mute", description="Mute a member (uses role and/or timeout)", aliases=["m"])
     @is_staff()
-    @app_commands.describe(member="The member to mute", duration="Duration in days (e.g. 1, 3, 7) or with units (1d, 3h, 10m)", reason="Reason for the mute")
+    @app_commands.describe(member="The member to mute", duration="Duration (e.g. 1d, 3d, 7d)", reason="Reason for the mute")
     @app_commands.choices(duration=[
-        app_commands.Choice(name="1 Day", value="1d"),
-        app_commands.Choice(name="3 Days", value="3d"),
-        app_commands.Choice(name="7 Days", value="7d")
+        app_commands.Choice(name="1d", value="1d"),
+        app_commands.Choice(name="3d", value="3d"),
+        app_commands.Choice(name="7d", value="7d")
     ])
     async def mute(self, ctx, member: discord.Member, duration: str = None, *, reason: str = "No reason provided"):
         if duration and not ctx.interaction:
