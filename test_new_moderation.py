@@ -70,6 +70,14 @@ class MockGuild:
         self.unbanned_user = None
         self.unban_reason = None
         self.audit_log_entries = []
+        self.banned_user = None
+        self.ban_reason = None
+        self.delete_message_seconds = None
+
+    async def ban(self, user, reason=None, delete_message_seconds=None):
+        self.banned_user = user
+        self.ban_reason = reason
+        self.delete_message_seconds = delete_message_seconds
 
     async def unban(self, user, reason=None):
         self.unbanned_user = user
@@ -196,8 +204,9 @@ async def test_moderation_commands():
         # ban
         ctx.sent_messages = []
         await cog.ban.callback(cog, ctx, target, reason="Bad user")
-        assert target.banned == True
-        assert target.ban_reason == "Bad user"
+        assert guild.banned_user == target
+        assert guild.ban_reason == "Bad user"
+        assert guild.delete_message_seconds == 604800
         assert any("banned" in str(m) for m in ctx.sent_messages)
         print("Command ban: PASSED")
 

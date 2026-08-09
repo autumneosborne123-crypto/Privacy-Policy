@@ -65,7 +65,25 @@ class Moderation(commands.Cog):
         except:
             pass
 
+    async def _check_hierarchy(self, ctx, target):
+        """Returns True if the action is allowed, False otherwise."""
+        if not isinstance(target, discord.Member):
+            return True # Not in guild, hierarchy doesn't apply
+            
+        try:
+            if ctx.guild.me.top_role <= target.top_role:
+                await ctx.send(f"❌ I cannot moderate {target.mention} because their role is higher than or equal to mine.")
+                return False
+            if ctx.author.top_role <= target.top_role and ctx.author != ctx.guild.owner:
+                await ctx.send(f"❌ You cannot moderate {target.mention} because their role is higher than or equal to yours.")
+                return False
+        except (TypeError, AttributeError):
+            # Fallback for tests or broken role objects
+            pass
+        return True
+
     async def _do_timeout(self, ctx, member: discord.Member, duration: str, reason: str):
+        if not await self._check_hierarchy(ctx, member): return
         try:
             minutes = parse_duration(duration)
         except ValueError as e:
@@ -89,6 +107,7 @@ class Moderation(commands.Cog):
             await ctx.send(f"❌ Failed to timeout member: {e}")
 
     async def _do_mute(self, ctx, member: discord.Member, duration: str = None, reason: str = "No reason provided"):
+        if not await self._check_hierarchy(ctx, member): return
         minutes = None
         if duration:
             try:
@@ -176,6 +195,7 @@ class Moderation(commands.Cog):
     @commands.hybrid_command(name="unmute", description="Unmute a member (removes role and timeout)", aliases=["um"])
     @is_staff()
     async def unmute(self, ctx, member: discord.Member, *, reason: str = "Unmuted by moderator"):
+        if not await self._check_hierarchy(ctx, member): return
         try:
             mute_role_id = await self.bot.db.get_mute_role(ctx.guild.id)
             mute_role = ctx.guild.get_role(mute_role_id) if mute_role_id else None
@@ -209,24 +229,21 @@ class Moderation(commands.Cog):
         except Exception as e:
             await ctx.send(f"❌ Failed to unmute member: {e}")
 
-    @commands.hybrid_command(name="ban", description="Ban a member")
+    @commands.hybrid_command(name="ban", description="Ban a user")
     @is_senior_staff()
     @commands.bot_has_permissions(ban_members=True)
-    async def ban(self, ctx, member: discord.Member, *, reason: str = "No reason provided"):
-        if ctx.guild.me.top_role <= member.top_role:
-            return await ctx.send("❌ I cannot ban this member because their role is higher than or equal to mine.")
-        if ctx.author.top_role <= member.top_role and ctx.author != ctx.guild.owner:
-            return await ctx.send("❌ You cannot ban this member because their role is higher than or equal to yours.")
+    async def ban(self, ctx, user: typing.Union[discord.Member, discord.User], *, reason: str = "No reason provided"):
+        if not await self._check_hierarchy(ctx, user): return
 
         try:
             # DM Notification BEFORE ban
             embed = discord.Embed(title=f"🔨 You have been banned from {ctx.guild.name}", color=0xff0000, timestamp=discord.utils.utcnow())
             embed.add_field(name="Reason", value=reason)
-            await self._send_dm(member, embed)
+            await self._send_dm(user, embed)
             
-            await member.ban(reason=reason, delete_message_seconds=604800)
-            await ctx.send(f"✅ Successfully banned {member.name}. Reason: {reason}")
-            await self.bot.log_action(ctx.guild, "Member Ban", f"{member.name} was banned and messages from the last 7 days were deleted.\n**Reason:** {reason}", color=0xff0000, moderator=ctx.author, user=member)
+            await ctx.guild.ban(user, reason=reason, delete_message_seconds=604800)
+            await ctx.send(f"✅ Successfully banned {user.name}. Reason: {reason}")
+            await self.bot.log_action(ctx.guild, "Member Ban", f"{user.name} was banned and messages from the last 7 days were deleted.\n**Reason:** {reason}", color=0xff0000, moderator=ctx.author, user=user)
         except Exception as e:
             await ctx.send(f"❌ Failed to ban member: {e}")
 
@@ -234,10 +251,7 @@ class Moderation(commands.Cog):
     @is_staff()
     @commands.bot_has_permissions(kick_members=True)
     async def kick(self, ctx, member: discord.Member, *, reason: str = "No reason provided"):
-        if ctx.guild.me.top_role <= member.top_role:
-            return await ctx.send("❌ I cannot kick this member because their role is higher than or equal to mine.")
-        if ctx.author.top_role <= member.top_role and ctx.author != ctx.guild.owner:
-            return await ctx.send("❌ You cannot kick this member because their role is higher than or equal to yours.")
+        if not await self._check_hierarchy(ctx, member): return
 
         try:
             # DM Notification BEFORE kick
@@ -276,6 +290,7 @@ class Moderation(commands.Cog):
     @commands.hybrid_command(name="warn", description="Warn a member")
     @is_staff()
     async def warn(self, ctx, member: discord.Member, *, reason: str = "No reason provided"):
+        if not await self._check_hierarchy(ctx, member): return
         try:
             await self.bot.db.add_warn(member.id, ctx.guild.id, ctx.author.id, reason)
             warns = await self.bot.db.get_warns(member.id, ctx.guild.id)
@@ -290,9 +305,9 @@ class Moderation(commands.Cog):
         except Exception as e:
             await ctx.send(f"❌ Failed to warn member: {e}")
 
-    @commands.hybrid_command(name="warns", description="Check a member's warnings", aliases=["warnings"])
+    @commands.hybrid_command(name="warns", description="Check a user's warnings", aliases=["warnings"])
     @is_staff()
-    async def warns(self, ctx, member: discord.Member):
+    async def warns(self, ctx, member: typing.Union[discord.Member, discord.User]):
         try:
             warn_list = await self.bot.db.get_warns(member.id, ctx.guild.id)
             if not warn_list:
@@ -331,9 +346,9 @@ class Moderation(commands.Cog):
         except Exception as e:
             await ctx.send(f"❌ Failed to remove warning: {e}")
 
-    @commands.hybrid_command(name="clearwarns", description="Clear all warnings for a member", aliases=["delwarns"])
+    @commands.hybrid_command(name="clearwarns", description="Clear all warnings for a user", aliases=["delwarns"])
     @is_senior_staff()
-    async def clearwarns(self, ctx, member: discord.Member):
+    async def clearwarns(self, ctx, member: typing.Union[discord.Member, discord.User]):
         try:
             await self.bot.db.clear_warns(member.id, ctx.guild.id)
             await ctx.send(f"✅ All warnings for {member.mention} have been cleared.")

@@ -157,8 +157,8 @@ class TestModerationEdgeCases(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(result)
 
     async def test_ban_already_banned(self):
-        # Setup: target.ban raises discord.Forbidden or similar
-        self.target.ban = AsyncMock(side_effect=Exception("Already banned"))
+        # Setup: guild.ban raises discord.Forbidden or similar
+        self.guild.ban = AsyncMock(side_effect=Exception("Already banned"))
         await self.cog.ban.callback(self.cog, self.ctx, self.target, reason="Testing failure")
         self.ctx.send.assert_called_with("❌ Failed to ban member: Already banned")
 
