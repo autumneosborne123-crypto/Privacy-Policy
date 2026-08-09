@@ -53,7 +53,7 @@ class Media(commands.Cog):
     async def before_cleanup_task(self):
         await self.bot.wait_until_ready()
 
-    @tasks.loop(minutes=60)
+    @tasks.loop(minutes=2)
     async def media_loop(self):
         try:
             feeds = await self.bot.db.get_media_feeds()
@@ -86,7 +86,7 @@ class Media(commands.Cog):
                     if url:
                         embed = discord.Embed(color=0xffb6c1)
                         embed.set_image(url=url)
-                        embed.set_footer(text=f"Category: {category} | Hourly Feed")
+                        embed.set_footer(text=f"Category: {category} | 2-Minute Feed")
                         try:
                             await channel.send(embed=embed)
                         except discord.HTTPException as e:
@@ -98,8 +98,8 @@ class Media(commands.Cog):
                         except Exception as e:
                             logging.error(f"Failed to send media feed to {channel_id}: {e}")
                 
-                # Significant delay between different feeds to avoid global rate limit
-                await asyncio.sleep(random.randint(60, 120)) 
+                # Minor delay between different feeds to avoid global rate limit while keeping up with 2min interval
+                await asyncio.sleep(random.randint(2, 5)) 
         except Exception as e:
             logging.error(f"Error in media loop: {e}")
 
