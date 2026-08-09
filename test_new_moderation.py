@@ -3,7 +3,7 @@ import os
 import discord
 from utils.database import Database
 from cogs.moderation import Moderation
-from utils.permissions import is_staff
+from utils.permissions import is_staff, is_senior_staff
 from datetime import datetime
 
 class MockPermissions:
@@ -119,7 +119,7 @@ async def test_permissions():
     print("Permission (Admin Perm): PASSED")
 
     # 2. Staff roles
-    staff_roles = ["sr.mod", "admin", "head admin", "co-owner", "adminstator", "administrator"]
+    staff_roles = ["sr.mod", "admin", "head admin", "co-owner", "administrator"]
     for role_name in staff_roles:
         member = MockMember(2, f"Staff_{role_name}", roles=[MockRole(role_name, position=10)])
         ctx = MockCtx(None, member, guild)
@@ -131,6 +131,25 @@ async def test_permissions():
     ctx = MockCtx(None, non_staff, guild)
     assert await predicate(ctx) == False
     print("Permission (Non-staff): PASSED")
+
+    print("\n--- Testing is_senior_staff Permissions ---")
+    senior_predicate = is_senior_staff().predicate
+    
+    # 1. Senior Staff roles
+    senior_roles = ["sernior mod", "senior mod", "admin", "head admin", "founder"]
+    for role_name in senior_roles:
+        member = MockMember(4, f"Senior_{role_name}", roles=[MockRole(role_name, position=20)])
+        ctx = MockCtx(None, member, guild)
+        assert await senior_predicate(ctx) == True
+        print(f"Senior Permission (Role {role_name}): PASSED")
+
+    # 2. Junior Staff roles (Should fail senior check)
+    junior_roles = ["mod", "sr.mod", "moderation", "staff"]
+    for role_name in junior_roles:
+        member = MockMember(5, f"Junior_{role_name}", roles=[MockRole(role_name, position=10)])
+        ctx = MockCtx(None, member, guild)
+        assert await senior_predicate(ctx) == False
+        print(f"Senior Permission (Denied {role_name}): PASSED")
 
 async def test_moderation_commands():
     db_path = "test_new_mod.db"

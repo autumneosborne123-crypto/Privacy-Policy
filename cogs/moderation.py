@@ -4,7 +4,7 @@ from discord import app_commands
 from datetime import timedelta
 import typing
 import re
-from utils.permissions import is_admin, is_staff
+from utils.permissions import is_admin, is_staff, is_senior_staff
 
 def parse_duration(duration: typing.Union[str, int]) -> int:
     """Parses a duration string like '1d', '3h', '10m' into minutes."""
@@ -207,7 +207,7 @@ class Moderation(commands.Cog):
             await ctx.send(f"❌ Failed to unmute member: {e}")
 
     @commands.hybrid_command(name="ban", description="Ban a member")
-    @is_staff()
+    @is_senior_staff()
     @commands.bot_has_permissions(ban_members=True)
     async def ban(self, ctx, member: discord.Member, *, reason: str = "No reason provided"):
         if ctx.guild.me.top_role <= member.top_role:
@@ -249,7 +249,7 @@ class Moderation(commands.Cog):
             await ctx.send(f"❌ Failed to kick member: {e}")
 
     @commands.hybrid_command(name="unban", description="Unban a user")
-    @is_staff()
+    @is_senior_staff()
     @commands.bot_has_permissions(ban_members=True)
     async def unban(self, ctx, user: discord.User, *, reason: str = "No reason provided"):
         try:
@@ -309,7 +309,7 @@ class Moderation(commands.Cog):
             await ctx.send(f"❌ Failed to fetch warnings: {e}")
 
     @commands.hybrid_command(name="removewarn", description="Remove a specific warning", aliases=["delwarn"])
-    @is_staff()
+    @is_senior_staff()
     async def removewarn(self, ctx, warn_id: int):
         try:
             warn = await self.bot.db.get_warn(warn_id, ctx.guild.id)
@@ -329,7 +329,7 @@ class Moderation(commands.Cog):
             await ctx.send(f"❌ Failed to remove warning: {e}")
 
     @commands.hybrid_command(name="clearwarns", description="Clear all warnings for a member", aliases=["delwarns"])
-    @is_staff()
+    @is_senior_staff()
     async def clearwarns(self, ctx, member: discord.Member):
         try:
             await self.bot.db.clear_warns(member.id, ctx.guild.id)

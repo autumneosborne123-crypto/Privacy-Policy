@@ -10,7 +10,7 @@ def is_admin():
             return True
         
         # Check for Admin role names (case-insensitive)
-        target_roles = ["admin", "admins", "administrator", "administrators"]
+        target_roles = ["admin", "admins", "administrator", "administrators", "head admin", "co-owner", "owner", "founder"]
         for role in ctx.author.roles:
             if role.name.lower() in target_roles:
                 return True
@@ -27,7 +27,10 @@ def is_admin_or_moderator():
             return True
         
         # Check for role names (case-insensitive)
-        target_roles = ["admin", "admins", "administrator", "administrators", "mod", "moderator", "moderators"]
+        target_roles = [
+            "admin", "admins", "administrator", "administrators", "head admin", "co-owner", "owner", "founder",
+            "mod", "moderator", "moderators", "sr.mod", "sernior mod", "senior mod", "moderation"
+        ]
         for role in ctx.author.roles:
             if role.name.lower() in target_roles:
                 return True
@@ -44,7 +47,28 @@ def is_staff():
             return True
         
         # Check for role names (case-insensitive, including user-specified ones)
-        target_roles = ["sr.mod", "admin", "head admin", "co-owner", "administrator", "moderator", "mod", "staff"]
+        target_roles = [
+            "mod", "sr.mod", "sernior mod", "senior mod", "moderation", 
+            "admin", "head admin", "co-owner", "owner", "founder",
+            "administrator", "moderator", "staff"
+        ]
+        for role in ctx.author.roles:
+            if role.name.lower() in target_roles:
+                return True
+        
+        return False
+    return commands.check(predicate)
+
+def is_senior_staff():
+    async def predicate(ctx):
+        if ctx.guild is None:
+            return False
+        # Check for Administrator permission
+        if ctx.author.guild_permissions.administrator:
+            return True
+        
+        # Check for role names (case-insensitive)
+        target_roles = ["sernior mod", "senior mod", "admin", "head admin", "co-owner", "owner", "founder"]
         for role in ctx.author.roles:
             if role.name.lower() in target_roles:
                 return True
