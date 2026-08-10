@@ -125,6 +125,9 @@ class HelpSelect(discord.ui.Select):
             elif cog_name == "Roles": emoji = "🎭"
             elif cog_name == "Tools": emoji = "🛠️"
             elif cog_name == "Stories": emoji = "📖"
+            elif cog_name == "Dashboard": emoji = "🌸"
+            elif cog_name == "Premium": emoji = "💎"
+            elif cog_name == "AFK": emoji = "💤"
             else: emoji = "📁"
             
             # Count non-hidden commands
@@ -193,7 +196,7 @@ class FlowerBot(commands.Bot):
         intents.message_content = True
         intents.members = True
         intents.voice_states = True
-        super().__init__(command_prefix=['.', '!', 's?'], intents=intents, help_command=None)
+        super().__init__(command_prefix=commands.when_mentioned_or('.', '!', 's?'), intents=intents, help_command=None)
         
         self.db = Database(DB_FILE)
         self.config = Config(CONFIG_FILE)
@@ -211,7 +214,7 @@ class FlowerBot(commands.Bot):
         disabled_raw = settings.get('disabled_cogs')
         if not disabled_raw: return True
         
-        disabled = [d.strip().lower() for d in disabled_raw.split(',')]
+        disabled = [d.strip().lower() for d in disabled_raw.split(',') if d.strip()]
         cog_name = ctx.cog.qualified_name.lower()
         cog_module = ctx.cog.__module__.lower()
         
