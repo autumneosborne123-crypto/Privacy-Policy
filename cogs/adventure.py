@@ -393,8 +393,7 @@ class Adventure(commands.Cog):
             if defender[0] != 0:
                 await self.db.update_animal(defender[0], {"hp": max(0, d_hp)})
 
-    @commands.hybrid_command(name="heal", description="Heal your animal using medicine")
-    @app_commands.autocomplete(animal=animal_autocomplete)
+    @commands.command(name="heal", description="Heal your animal using medicine")
     async def heal(self, ctx, animal: str):
         await ctx.defer()
         animal = str(animal)
@@ -422,9 +421,8 @@ class Adventure(commands.Cog):
             embed.set_image(url=self.animals_data[a_type]['image'])
         await ctx.send(embed=embed)
 
-    @commands.hybrid_command(name="train", description="Train your animal to gain XP")
+    @commands.command(name="train", description="Train your animal to gain XP")
     @commands.cooldown(1, 30, commands.BucketType.user)
-    @app_commands.autocomplete(animal=animal_autocomplete)
     async def train(self, ctx, animal: str):
         await ctx.defer()
         animal = str(animal)
@@ -516,8 +514,7 @@ class Adventure(commands.Cog):
         if res == "COMPLETED":
             self.bot.dispatch("quest_completion", ctx.author.id)
 
-    @commands.hybrid_command(name="revive", description="Revive a fainted animal using a Revive item")
-    @app_commands.autocomplete(animal=animal_autocomplete)
+    @commands.command(name="revive", description="Revive a fainted animal using a Revive item")
     async def revive(self, ctx, animal: str):
         await ctx.defer()
         animal = str(animal)
@@ -544,8 +541,7 @@ class Adventure(commands.Cog):
             embed.set_image(url=self.animals_data[a_type]['image'])
         await ctx.send(embed=embed)
 
-    @commands.hybrid_command(name="boost", description="Permanently boost an animal's stats using Protein Shake or Iron Shield")
-    @app_commands.autocomplete(animal=animal_autocomplete)
+    @commands.command(name="boost", description="Permanently boost an animal's stats using Protein Shake or Iron Shield")
     async def boost(self, ctx, animal: str, item_name: str):
         await ctx.defer()
         animal = str(animal)
@@ -707,8 +703,7 @@ class Adventure(commands.Cog):
         else:
             await ctx.send("💀 **DEFEAT!** The boss was too strong. The raid failed.")
 
-    @commands.hybrid_command(name="gift_animal", description="Gift an animal to another user")
-    @app_commands.autocomplete(animal=animal_autocomplete)
+    @commands.command(name="gift_animal", description="Gift an animal to another user")
     async def gift_animal(self, ctx, member: discord.Member, animal: str):
         if member == ctx.author: return await ctx.send("❌ You cannot gift an animal to yourself.", ephemeral=True)
         animal = str(animal)
@@ -735,8 +730,7 @@ class Adventure(commands.Cog):
         # Achievement for trading
         self.bot.dispatch("trade_complete", ctx.author.id)
 
-    @commands.hybrid_command(name="trade_animal", description="Trade an animal with another user")
-    @app_commands.autocomplete(animal=animal_autocomplete)
+    @commands.command(name="trade_animal", description="Trade an animal with another user")
     async def trade_animal(self, ctx, member: discord.Member, animal: str):
         if member == ctx.author: return await ctx.send("❌ You cannot trade with yourself.", ephemeral=True)
         animal = str(animal)
@@ -775,8 +769,7 @@ class Adventure(commands.Cog):
         await ctx.send(embed=embed)
         self.bot.dispatch("trade_complete", ctx.author.id)
 
-    @commands.hybrid_command(name="nickname", description="Give a nickname to your animal")
-    @app_commands.autocomplete(animal=animal_autocomplete)
+    @commands.command(name="nickname", description="Give a nickname to your animal")
     async def nickname(self, ctx, animal: str, *, new_name: str):
         if len(new_name) > 32:
             return await ctx.send("❌ Nickname too long.", ephemeral=True)

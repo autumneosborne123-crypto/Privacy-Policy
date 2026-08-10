@@ -319,11 +319,11 @@ class Fun(commands.Cog):
     def cog_unload(self):
         self.send_daily_quote.cancel()
 
-    @commands.hybrid_command(name="roll", description="Roll a dice")
+    @commands.command(name="roll", description="Roll a dice")
     async def roll(self, ctx, sides: int = 6):
         await ctx.send(f"🎲 You rolled a {random.randint(1, sides)}!")
 
-    @commands.hybrid_command(name="rps", description="Play Rock-Paper-Scissors")
+    @commands.command(name="rps", description="Play Rock-Paper-Scissors")
     async def rps(self, ctx, choice: str):
         choices = ["rock", "paper", "scissors"]
         bot_choice = random.choice(choices)
@@ -339,16 +339,16 @@ class Fun(commands.Cog):
         else: res = "I win! 🤖"
         await ctx.send(f"You chose **{choice}**, I chose **{bot_choice}**. {res}")
 
-    @commands.hybrid_command(name="coinflip")
+    @commands.command(name="coinflip")
     async def coinflip(self, ctx):
         await ctx.send(f"🪙 It's **{random.choice(['Heads', 'Tails'])}**!")
 
-    @commands.hybrid_command(name="8ball")
+    @commands.command(name="8ball")
     async def eightball(self, ctx, *, question: str):
         responses = ["It is certain.", "It is decidedly so.", "Without a doubt.", "Yes - definitely.", "You may rely on it.", "As I see it, yes.", "Most likely.", "Outlook good.", "Yes.", "Signs point to yes.", "Reply hazy, try again.", "Ask again later.", "Better not tell you now.", "Cannot predict now.", "Concentrate and ask again.", "Don't count on it.", "My reply is no.", "My sources say no.", "Outlook not so good.", "Very doubtful."]
         await ctx.send(f"🎱 **Q:** {question}\n**A:** {random.choice(responses)}")
 
-    @commands.hybrid_command(name="guess")
+    @commands.command(name="guess")
     async def guess(self, ctx, number: int):
         ans = random.randint(1, 10)
         if number == ans: 
@@ -381,7 +381,7 @@ class Fun(commands.Cog):
                 else:
                     await ctx.send("❌ Could not fetch trivia at the moment.")
 
-    @commands.hybrid_command(name="minesweeper", description="Play a game of Minesweeper")
+    @commands.command(name="minesweeper", description="Play a game of Minesweeper")
     async def minesweeper(self, ctx, columns: int = 8, rows: int = 8, bombs: int = 10):
         if columns > 10 or rows > 10:
             return await ctx.send("❌ Max grid size is 10x10.", ephemeral=True)
@@ -414,7 +414,7 @@ class Fun(commands.Cog):
         
         await ctx.send(f"🚩 **Minesweeper ({columns}x{rows}, {bombs} bombs):**\n{content}")
 
-    @commands.hybrid_command(name="hangman", description="Play a game of Hangman")
+    @commands.command(name="hangman", description="Play a game of Hangman")
     async def hangman(self, ctx):
         words = ["discord", "python", "programming", "robot", "computer", "internet", "security", "demon", "flower", "server", "bot"]
         word = random.choice(words).lower()
@@ -462,7 +462,7 @@ class Fun(commands.Cog):
         view = ConnectFourView(ctx.author)
         view.message = await ctx.send(f"🎮 **Connect Four**\n{ctx.author.mention} is looking for an opponent!", view=view)
 
-    @commands.hybrid_command(name="slots", description="Try your luck at the slots")
+    @commands.command(name="slots", description="Try your luck at the slots")
     async def slots(self, ctx):
         items = ["🍎", "🍊", "🍇", "🍒", "💎", "🎰"]
         a, b, c = random.choices(items, k=3)
@@ -482,7 +482,7 @@ class Fun(commands.Cog):
             embed.color = 0xFF0000
         await ctx.send(embed=embed)
 
-    @commands.hybrid_command(name="wouldyourather", aliases=["wyr"], description="Play Would You Rather")
+    @commands.command(name="wouldyourather", aliases=["wyr"], description="Play Would You Rather")
     async def wyr(self, ctx):
         questions = [
             ("Always have to sing rather than speak?", "Always have to dance everywhere you go?"),
@@ -495,7 +495,7 @@ class Fun(commands.Cog):
         view = WYRView(ctx, q)
         await ctx.send(embed=view.get_embed(), view=view)
 
-    @commands.hybrid_command(name="fasttyper", description="See how fast you can type")
+    @commands.command(name="fasttyper", description="See how fast you can type")
     async def fasttyper(self, ctx):
         sentences = [
             "The quick brown fox jumps over the lazy dog",
@@ -516,7 +516,7 @@ class Fun(commands.Cog):
         except asyncio.TimeoutError:
             await ctx.send("⏰ Time's up! You took too long.")
 
-    @commands.hybrid_command(name="encourage")
+    @commands.command(name="encourage")
     async def encourage(self, ctx):
         msgs = [
             "You're doing amazing! ✨", "Don't give up! 💪", "You are capable. 🌟", 
@@ -528,7 +528,7 @@ class Fun(commands.Cog):
         ]
         await ctx.send(f"{ctx.author.mention} {random.choice(msgs)}")
 
-    @commands.hybrid_command(name="compliment")
+    @commands.command(name="compliment")
     async def compliment(self, ctx, member: discord.Member = None):
         target = member or ctx.author
         comps = [
