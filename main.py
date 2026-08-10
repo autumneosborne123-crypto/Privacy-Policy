@@ -204,8 +204,8 @@ class FlowerBot(commands.Bot):
         if not ctx.guild: return True
         if not ctx.cog: return True
         
-        # System and Config cogs should always be accessible
-        if ctx.cog.qualified_name in ["System", "Config"]: return True
+        # System, Config, and Dashboard cogs should always be accessible
+        if ctx.cog.qualified_name in ["System", "Config", "Dashboard"]: return True
         
         settings = await self.db.get_all_guild_settings(ctx.guild.id)
         disabled_raw = settings.get('disabled_cogs')

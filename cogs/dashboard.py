@@ -5,12 +5,23 @@ import logging
 from utils.permissions import is_admin
 import asyncio
 
-class ModuleToggleView(ui.View):
-    def __init__(self, bot, guild, original_view):
-        super().__init__(timeout=60)
+class DashboardBaseView(ui.View):
+    def __init__(self, bot, guild, user, original_view=None, timeout=60):
+        super().__init__(timeout=timeout)
         self.bot = bot
         self.guild = guild
+        self.user = user
         self.original_view = original_view
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.user.id != self.user.id:
+            await interaction.response.send_message("❌ This dashboard is not for you.", ephemeral=True)
+            return False
+        return True
+
+class ModuleToggleView(DashboardBaseView):
+    def __init__(self, bot, guild, user, original_view):
+        super().__init__(bot, guild, user, original_view)
         self.add_buttons()
 
     def add_buttons(self):
@@ -56,12 +67,9 @@ class ModuleButton(ui.Button):
         await interaction.response.send_message(f"✅ Module `{self.value}` has been **{status}**.", ephemeral=True)
         # We could update the view colors here too but keep it simple for now
 
-class LoggingToggleView(ui.View):
-    def __init__(self, bot, guild, original_view):
-        super().__init__(timeout=60)
-        self.bot = bot
-        self.guild = guild
-        self.original_view = original_view
+class LoggingToggleView(DashboardBaseView):
+    def __init__(self, bot, guild, user, original_view):
+        super().__init__(bot, guild, user, original_view)
         self.add_buttons()
 
     def add_buttons(self):
@@ -95,12 +103,9 @@ class LoggingButton(ui.Button):
         status_text = "enabled" if new_status == 1 else "disabled"
         await interaction.response.send_message(f"✅ Logging for `{self.label}` has been **{status_text}**.", ephemeral=True)
 
-class SecurityToggleView(ui.View):
-    def __init__(self, bot, guild, original_view):
-        super().__init__(timeout=60)
-        self.bot = bot
-        self.guild = guild
-        self.original_view = original_view
+class SecurityToggleView(DashboardBaseView):
+    def __init__(self, bot, guild, user, original_view):
+        super().__init__(bot, guild, user, original_view)
         self.add_buttons()
 
     def add_buttons(self):
@@ -148,19 +153,19 @@ class DashboardView(ui.View):
 
     @ui.button(label="Modules", emoji="📁", style=discord.ButtonStyle.primary, row=0)
     async def modules_btn(self, interaction: discord.Interaction, button: ui.Button):
-        view = ModuleToggleView(self.bot, self.guild, self)
+        view = ModuleToggleView(self.bot, self.guild, self.user, self)
         embed = discord.Embed(title="📁 Module Management", description="Toggle bot modules on or off for this server.", color=0x2b2d31)
         await interaction.response.edit_message(embed=embed, view=view)
 
     @ui.button(label="Logging", emoji="📜", style=discord.ButtonStyle.primary, row=0)
     async def logging_btn(self, interaction: discord.Interaction, button: ui.Button):
-        view = LoggingToggleView(self.bot, self.guild, self)
+        view = LoggingToggleView(self.bot, self.guild, self.user, self)
         embed = discord.Embed(title="📜 Logging Management", description="Toggle specific logging categories.", color=0x2b2d31)
         await interaction.response.edit_message(embed=embed, view=view)
 
     @ui.button(label="Security", emoji="🛡️", style=discord.ButtonStyle.primary, row=0)
     async def security_btn(self, interaction: discord.Interaction, button: ui.Button):
-        view = SecurityToggleView(self.bot, self.guild, self)
+        view = SecurityToggleView(self.bot, self.guild, self.user, self)
         embed = discord.Embed(title="🛡️ Security Management", description="Toggle anti-raid, anti-spam, and other security tools.", color=0x2b2d31)
         await interaction.response.edit_message(embed=embed, view=view)
 
@@ -168,7 +173,7 @@ class DashboardView(ui.View):
     async def perms_btn(self, interaction: discord.Interaction, button: ui.Button):
         embed = discord.Embed(title="⚖️ Permissions Setup", description="Use the select menus below to set your staff and admin roles.", color=0x2b2d31)
         
-        view = ui.View()
+        view = DashboardBaseView(self.bot, self.guild, self.user, original_view=self, timeout=180)
         staff_select = ui.RoleSelect(placeholder="Select Staff Role...", min_values=1, max_values=1)
         admin_select = ui.RoleSelect(placeholder="Select Admin Role...", min_values=1, max_values=1)
         
@@ -236,8 +241,14 @@ class DashboardView(ui.View):
         # Roles
         staff_role_id = settings.get('staff_role_id')
         admin_role_id = settings.get('admin_role_id')
-        staff_role = self.guild.get_role(int(staff_role_id)) if staff_role_id else None
-        admin_role = self.guild.get_role(int(admin_role_id)) if admin_role_id else None
+        
+        staff_role = None
+        if staff_role_id and str(staff_role_id).isdigit():
+            staff_role = self.guild.get_role(int(staff_role_id))
+            
+        admin_role = None
+        if admin_role_id and str(admin_role_id).isdigit():
+            admin_role = self.guild.get_role(int(admin_role_id))
         
         embed.add_field(name="Roles", value=f"**Staff:** {staff_role.mention if staff_role else 'None'}\n**Admin:** {admin_role.mention if admin_role else 'None'}", inline=False)
         
