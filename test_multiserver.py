@@ -83,10 +83,10 @@ class TestMultiServer(unittest.IsolatedAsyncioTestCase):
         self.guild.get_role.side_effect = lambda rid: MockRole(rid, "Staff") if str(rid) == '777' else None
         
         embed = await view.create_overview_embed()
-        self.assertIn("Dashboard", embed.title)
-        self.assertIn("Moderation:** ✅ Active", embed.fields[0].value)
-        self.assertIn("Logging:** ✅ Active", embed.fields[0].value)
-        self.assertIn("Staff", embed.fields[2].value)
+        self.assertIn("Control Panel", embed.title)
+        self.assertIn("✅ **Moderation**", embed.fields[0].value)
+        self.assertIn("✅ **Logging**", embed.fields[0].value)
+        self.assertIn("Staff", embed.fields[3].value)
         print("Dashboard overview creation: PASSED")
 
     async def test_dashboard_command_hybrid(self):

@@ -138,18 +138,9 @@ class SecurityButton(ui.Button):
         status_text = "enabled" if new_status == 1 else "disabled"
         await interaction.response.send_message(f"✅ Security tool `{self.label}` has been **{status_text}**.", ephemeral=True)
 
-class DashboardView(ui.View):
+class DashboardView(DashboardBaseView):
     def __init__(self, bot, guild, user):
-        super().__init__(timeout=300)
-        self.bot = bot
-        self.guild = guild
-        self.user = user
-
-    async def interaction_check(self, interaction: discord.Interaction) -> bool:
-        if interaction.user.id != self.user.id:
-            await interaction.response.send_message("❌ This dashboard is not for you.", ephemeral=True)
-            return False
-        return True
+        super().__init__(bot, guild, user, timeout=300)
 
     @ui.button(label="Modules", emoji="📁", style=discord.ButtonStyle.primary, row=0)
     async def modules_btn(self, interaction: discord.Interaction, button: ui.Button):
@@ -204,8 +195,6 @@ class DashboardView(ui.View):
 
     @ui.button(label="Embed Builder", emoji="📝", style=discord.ButtonStyle.success, row=1)
     async def embed_btn(self, interaction: discord.Interaction, button: ui.Button):
-        # We can't easily nest views like this without complexity, so we just launch it
-        # Actually, we can import it
         from cogs.tools import EmbedBuilderView
         view = EmbedBuilderView(self.bot, interaction.user)
         await interaction.response.send_message("Launching Embed Builder...", embed=view.embed, view=view, ephemeral=True)
@@ -225,22 +214,44 @@ class DashboardView(ui.View):
             logging.error(f"Dashboard error fetching settings: {e}")
             settings = {}
         
-        embed = discord.Embed(title=f"🌸 {self.guild.name} Dashboard", color=0x2b2d31)
-        embed.description = "Quick overview of your server's current bot configuration."
+        embed = discord.Embed(title=f"🌸 {self.guild.name} Control Panel", color=0x2b2d31)
+        embed.description = (
+            "Welcome to your server's management dashboard. Here you can configure "
+            "all bot modules, logging, and security settings in one place.\n\n"
+            "**Server Quick-Info:**"
+        )
         
         # Modules Status
         disabled_raw = settings.get('disabled_cogs') or ""
         disabled = [d.strip().lower() for d in disabled_raw.split(',') if d.strip()]
-        mod_status = "✅ Active" if "moderation" not in disabled else "❌ Disabled"
-        log_status = "✅ Active" if "logging" not in disabled else "❌ Disabled"
-        sec_status = "✅ Active" if "security" not in disabled else "❌ Disabled"
         
-        embed.add_field(name="Modules", value=f"**Moderation:** {mod_status}\n**Logging:** {log_status}\n**Security:** {sec_status}", inline=True)
+        def get_status(name):
+            return "✅" if name.lower() not in disabled else "❌"
+            
+        embed.add_field(
+            name="📁 Module Status", 
+            value=(
+                f"{get_status('Moderation')} **Moderation**\n"
+                f"{get_status('Logging')} **Logging**\n"
+                f"{get_status('Security')} **Security**"
+            ), 
+            inline=True
+        )
+        
+        embed.add_field(
+            name="🎮 Entertainment", 
+            value=(
+                f"{get_status('Adventure')} **Adventure**\n"
+                f"{get_status('Economy')} **Economy**\n"
+                f"{get_status('Games')} **Games**"
+            ), 
+            inline=True
+        )
         
         # Security Status
-        anti_spam = "✅" if settings.get('anti_spam_enabled') != 0 else "❌"
-        anti_raid = "✅" if settings.get('anti_raid_enabled') != 0 else "❌"
-        embed.add_field(name="Security Tools", value=f"**Anti-Spam:** {anti_spam}\n**Anti-Raid:** {anti_raid}", inline=True)
+        anti_spam = "✅ Enabled" if settings.get('anti_spam_enabled') != 0 else "❌ Disabled"
+        anti_raid = "✅ Enabled" if settings.get('anti_raid_enabled') != 0 else "❌ Disabled"
+        embed.add_field(name="🛡️ Protection Status", value=f"**Anti-Spam:** {anti_spam}\n**Anti-Raid:** {anti_raid}", inline=True)
         
         # Roles
         staff_role_id = settings.get('staff_role_id')
@@ -254,9 +265,12 @@ class DashboardView(ui.View):
         if admin_role_id and str(admin_role_id).isdigit():
             admin_role = self.guild.get_role(int(admin_role_id))
         
-        embed.add_field(name="Roles", value=f"**Staff:** {staff_role.mention if staff_role else 'None'}\n**Admin:** {admin_role.mention if admin_role else 'None'}", inline=False)
+        embed.add_field(name="⚖️ Designated Roles", value=f"**Staff:** {staff_role.mention if staff_role else '`Not Set`'}\n**Admin:** {admin_role.mention if admin_role else '`Not Set`'}", inline=False)
         
-        embed.set_footer(text="Use buttons below to navigate and configure.")
+        embed.set_footer(text="Manage your server settings using the buttons below.")
+        if self.bot.user.display_avatar:
+            embed.set_thumbnail(url=self.bot.user.display_avatar.url)
+            
         return embed
 
 class Dashboard(commands.Cog):

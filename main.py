@@ -168,11 +168,23 @@ class HelpSelect(discord.ui.Select):
         await interaction.response.edit_message(embed=embed, view=self.view)
 
 class HelpView(discord.ui.View):
-    def __init__(self, bot, prefix):
+    def __init__(self, bot, prefix, ctx, is_admin=False):
         super().__init__(timeout=60)
         self.bot = bot
         self.prefix = prefix
+        self.ctx = ctx
         self.add_item(HelpSelect(bot, prefix))
+        
+        if is_admin:
+            btn = discord.ui.Button(label="Dashboard", emoji="🌸", style=discord.ButtonStyle.success, row=1)
+            btn.callback = self.dashboard_callback
+            self.add_item(btn)
+            
+    async def dashboard_callback(self, interaction: discord.Interaction):
+        from cogs.dashboard import DashboardView
+        view = DashboardView(self.bot, self.ctx.guild, self.ctx.author)
+        embed = await view.create_overview_embed()
+        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
         
     def create_home_embed(self):
         embed = discord.Embed(title="🌸 flowerbot.gg Help Menu", color=0x2b2d31)
@@ -403,7 +415,25 @@ class FlowerBot(commands.Bot):
             
             return await ctx.send(embed=embed, ephemeral=True)
 
-        view = HelpView(self, prefix)
+        # Check admin for dashboard shortcut
+        is_admin_user = False
+        if ctx.guild:
+            if ctx.author.guild_permissions.administrator:
+                is_admin_user = True
+            else:
+                admin_role_id = await self.db.get_guild_setting(ctx.guild.id, "admin_role_id")
+                if admin_role_id:
+                    role = ctx.guild.get_role(int(admin_role_id))
+                    if role and role in ctx.author.roles:
+                        is_admin_user = True
+                if not is_admin_user:
+                    target_roles = ["admin", "admins", "administrator", "administrators", "head admin", "co-owner", "owner", "founder"]
+                    for role in ctx.author.roles:
+                        if role.name.lower() in target_roles:
+                            is_admin_user = True
+                            break
+
+        view = HelpView(self, prefix, ctx, is_admin=is_admin_user)
         embed = view.create_home_embed()
         await ctx.send(embed=embed, view=view, ephemeral=True)
 

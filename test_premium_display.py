@@ -150,7 +150,10 @@ class TestPremiumDisplay(unittest.IsolatedAsyncioTestCase):
         self.assertNotIn("discord.gg/flowerbot", embed.description)
         
         # Check Help Menu
-        view = HelpView(self.bot, ".")
+        mock_help_ctx = AsyncMock()
+        mock_help_ctx.guild = None
+        mock_help_ctx.author.id = 123
+        view = HelpView(self.bot, ".", mock_help_ctx)
         help_embed = view.create_home_embed()
         self.assertIn("https://discord.gg/mXtvjGpQmM", help_embed.description)
         self.assertNotIn("discord.gg/flowerbot", help_embed.description)
