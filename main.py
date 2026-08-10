@@ -193,7 +193,7 @@ class FlowerBot(commands.Bot):
         intents.message_content = True
         intents.members = True
         intents.voice_states = True
-        super().__init__(command_prefix=['.', 's?'], intents=intents, help_command=None)
+        super().__init__(command_prefix=['.', '!', 's?'], intents=intents, help_command=None)
         
         self.db = Database(DB_FILE)
         self.config = Config(CONFIG_FILE)

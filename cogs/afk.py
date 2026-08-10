@@ -8,7 +8,7 @@ class AFK(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @commands.hybrid_command(name="afk", description="Set your AFK status")
+    @commands.command(name="afk", description="Set your AFK status")
     async def afk(self, ctx, *, reason: str = "I am currently AFK"):
         """Set your AFK status so others know you're away."""
         await self.bot.db.set_afk(ctx.author.id, reason, time.time())
