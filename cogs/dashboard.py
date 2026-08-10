@@ -219,7 +219,11 @@ class DashboardView(ui.View):
         await interaction.response.edit_message(embed=embed, view=self)
 
     async def create_overview_embed(self):
-        settings = await self.bot.db.get_all_guild_settings(self.guild.id)
+        try:
+            settings = await self.bot.db.get_all_guild_settings(self.guild.id)
+        except Exception as e:
+            logging.error(f"Dashboard error fetching settings: {e}")
+            settings = {}
         
         embed = discord.Embed(title=f"🌸 {self.guild.name} Dashboard", color=0x2b2d31)
         embed.description = "Quick overview of your server's current bot configuration."
@@ -261,8 +265,10 @@ class Dashboard(commands.Cog):
 
     @commands.hybrid_command(name="dashboard", aliases=["dash", "db"], description="Open the server management dashboard")
     @is_admin()
+    @commands.bot_has_permissions(embed_links=True, send_messages=True)
     async def dashboard(self, ctx):
         """Open a simple, clean interactive dashboard to manage server settings."""
+        await ctx.defer(ephemeral=True)
         view = DashboardView(self.bot, ctx.guild, ctx.author)
         embed = await view.create_overview_embed()
         await ctx.send(embed=embed, view=view, ephemeral=True)
