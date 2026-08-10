@@ -226,7 +226,7 @@ class FlowerBot(commands.Bot):
         await self.db.init()
         
         # Load Cogs
-        cogs = ['cogs.leveling', 'cogs.music', 'cogs.security', 'cogs.fun', 'cogs.moderation', 'cogs.config', 'cogs.system', 'cogs.games', 'cogs.media', 'cogs.economy', 'cogs.adventure', 'cogs.achievements', 'cogs.logging', 'cogs.roles', 'cogs.tools', 'cogs.premium', 'cogs.afk']
+        cogs = ['cogs.leveling', 'cogs.music', 'cogs.security', 'cogs.fun', 'cogs.moderation', 'cogs.config', 'cogs.system', 'cogs.games', 'cogs.media', 'cogs.economy', 'cogs.adventure', 'cogs.achievements', 'cogs.logging', 'cogs.roles', 'cogs.tools', 'cogs.premium', 'cogs.afk', 'cogs.dashboard']
         for cog in cogs:
             try:
                 await self.load_extension(cog)
@@ -330,6 +330,47 @@ class FlowerBot(commands.Bot):
             self.start_time = discord.utils.utcnow()
         await self.change_presence(activity=discord.Game(name=".help | Moderating & Playing"))
         logging.info(f'Logged in as {self.user} (ID: {self.user.id})')
+
+    async def on_guild_join(self, guild):
+        logging.info(f"Joined new guild: {guild.name} (ID: {guild.id})")
+        
+        # Initialize default settings
+        # Security defaults (1 = enabled) are already handled by None != 0 logic in cogs,
+        # but we can explicitly set them if we want to be sure.
+        await self.db.set_guild_setting(guild.id, "anti_spam_enabled", 1)
+        await self.db.set_guild_setting(guild.id, "anti_scam_enabled", 1)
+        await self.db.set_guild_setting(guild.id, "anti_raid_enabled", 1)
+        await self.db.set_guild_setting(guild.id, "anti_nuke_enabled", 1)
+        
+        # Send welcome message to system channel or owner
+        embed = discord.Embed(title="🌸 Thank you for inviting flowerbot.gg!", color=0x2b2d31)
+        embed.description = (
+            f"Hello! I'm **flowerbot.gg**, a multi-purpose bot designed to help you moderate, "
+            f"protect, and entertain your community in **{guild.name}**.\n\n"
+            "🚀 **Quick Start:**\n"
+            "1. Use `.dashboard` to open the interactive management menu.\n"
+            "2. Use `.settings` to view your current configuration.\n"
+            "3. Use `.help` to see all available commands.\n"
+            "4. Use `.diagnose` to check if I have all required permissions.\n\n"
+            "🛡️ **Security:** All protection tools (Anti-Spam, Anti-Raid, etc.) are **Enabled** by default."
+        )
+        embed.add_field(name="Support", value="[Join Support Server](https://discord.gg/mXtvjGpQmM)")
+        embed.set_thumbnail(url=self.user.display_avatar.url)
+        
+        target = guild.system_channel
+        if not target or not target.permissions_for(guild.me).send_messages:
+            # Fallback to the first channel we can talk in
+            target = next((c for c in guild.text_channels if c.permissions_for(guild.me).send_messages), None)
+            
+        if target:
+            try: await target.send(embed=embed)
+            except: pass
+            
+        # Also notify owner if possible
+        try:
+            await guild.owner.send(embed=embed)
+        except:
+            pass
 
     @commands.hybrid_command(name="help", description="Show the help menu")
     async def help(self, ctx: commands.Context, command_name: str = None):

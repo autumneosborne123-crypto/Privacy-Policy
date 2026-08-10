@@ -18,6 +18,9 @@ class MockContext:
     def __init__(self, member, guild=True):
         self.author = member
         self.guild = MagicMock() if guild else None
+        self.bot = MagicMock()
+        self.bot.db = AsyncMock()
+        self.bot.db.get_guild_setting = AsyncMock(return_value=None)
 
 class TestPermissions(unittest.IsolatedAsyncioTestCase):
     async def test_is_admin(self):

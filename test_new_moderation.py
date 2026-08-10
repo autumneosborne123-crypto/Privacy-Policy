@@ -1,6 +1,7 @@
 import asyncio
 import os
 import discord
+from unittest.mock import MagicMock, AsyncMock
 from utils.database import Database
 from cogs.moderation import Moderation
 from utils.permissions import is_staff, is_senior_staff
@@ -119,9 +120,14 @@ async def test_permissions():
     print("--- Testing is_staff Permissions ---")
     guild = MockGuild(123)
     
+    # Setup mock bot/db
+    db = MagicMock()
+    db.get_guild_setting = AsyncMock(return_value=None)
+    bot = MockBot(db)
+    
     # 1. Administrator permission
     admin_member = MockMember(1, "AdminUser", administrator=True)
-    ctx = MockCtx(None, admin_member, guild)
+    ctx = MockCtx(bot, admin_member, guild)
     predicate = is_staff().predicate
     assert await predicate(ctx) == True
     print("Permission (Admin Perm): PASSED")
@@ -130,13 +136,13 @@ async def test_permissions():
     staff_roles = ["sr.mod", "admin", "head admin", "co-owner", "administrator"]
     for role_name in staff_roles:
         member = MockMember(2, f"Staff_{role_name}", roles=[MockRole(role_name, position=10)])
-        ctx = MockCtx(None, member, guild)
+        ctx = MockCtx(bot, member, guild)
         assert await predicate(ctx) == True
         print(f"Permission (Role {role_name}): PASSED")
 
     # 3. Non-staff role
     non_staff = MockMember(3, "RegularUser", roles=[MockRole("Member")])
-    ctx = MockCtx(None, non_staff, guild)
+    ctx = MockCtx(bot, non_staff, guild)
     assert await predicate(ctx) == False
     print("Permission (Non-staff): PASSED")
 
@@ -147,7 +153,7 @@ async def test_permissions():
     senior_roles = ["sernior mod", "senior mod", "admin", "head admin", "founder"]
     for role_name in senior_roles:
         member = MockMember(4, f"Senior_{role_name}", roles=[MockRole(role_name, position=20)])
-        ctx = MockCtx(None, member, guild)
+        ctx = MockCtx(bot, member, guild)
         assert await senior_predicate(ctx) == True
         print(f"Senior Permission (Role {role_name}): PASSED")
 
@@ -155,7 +161,7 @@ async def test_permissions():
     junior_roles = ["mod", "sr.mod", "moderation", "staff"]
     for role_name in junior_roles:
         member = MockMember(5, f"Junior_{role_name}", roles=[MockRole(role_name, position=10)])
-        ctx = MockCtx(None, member, guild)
+        ctx = MockCtx(bot, member, guild)
         assert await senior_predicate(ctx) == False
         print(f"Senior Permission (Denied {role_name}): PASSED")
 

@@ -134,7 +134,9 @@ class Database:
                 'log_member_unban': 'BOOLEAN DEFAULT 1',
                 'log_voice_activity': 'BOOLEAN DEFAULT 1',
                 'premium_247': 'BOOLEAN DEFAULT 0',
-                'autolyrics': 'BOOLEAN DEFAULT 0'
+                'autolyrics': 'BOOLEAN DEFAULT 0',
+                'staff_role_id': 'TEXT',
+                'admin_role_id': 'TEXT'
             }
             for col, col_type in new_cols.items():
                 if col not in gs_columns:

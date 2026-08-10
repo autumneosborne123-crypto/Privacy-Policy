@@ -150,6 +150,7 @@ class TestModerationEdgeCases(unittest.IsolatedAsyncioTestCase):
         ctx = MagicMock()
         ctx.guild = self.guild
         ctx.author = author
+        ctx.bot = self.bot # self.bot has self.db (AsyncMock)
         
         # Check predicate
         predicate = is_staff().predicate

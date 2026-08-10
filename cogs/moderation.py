@@ -82,10 +82,10 @@ class Moderation(commands.Cog):
             pass
         return True
 
-    async def _do_timeout(self, ctx, member: discord.Member, minutes_input: str, reason: str):
+    async def _do_timeout(self, ctx, member: discord.Member, duration_input: str, reason: str):
         if not await self._check_hierarchy(ctx, member): return
         try:
-            minutes = parse_duration(minutes_input)
+            minutes = parse_duration(duration_input)
         except ValueError as e:
             return await ctx.send(f"❌ {e}")
 
@@ -106,12 +106,12 @@ class Moderation(commands.Cog):
         except Exception as e:
             await ctx.send(f"❌ Failed to timeout member: {e}")
 
-    async def _do_mute(self, ctx, member: discord.Member, minutes_input: str = None, reason: str = "No reason provided"):
+    async def _do_mute(self, ctx, member: discord.Member, duration_input: str = None, reason: str = "No reason provided"):
         if not await self._check_hierarchy(ctx, member): return
         minutes = None
-        if minutes_input:
+        if duration_input:
             try:
-                minutes = parse_duration(minutes_input)
+                minutes = parse_duration(duration_input)
             except ValueError as e:
                 return await ctx.send(f"❌ {e}")
 
@@ -161,36 +161,36 @@ class Moderation(commands.Cog):
 
     @commands.hybrid_command(name="timeout", description="Timeout a member")
     @is_staff()
-    @app_commands.describe(member="The member to timeout", minutes="Duration (e.g. 1d, 3d, 7d)", reason="Reason for the timeout")
-    @app_commands.choices(minutes=[
+    @app_commands.describe(member="The member to timeout", duration="Duration (e.g. 1d, 3d, 7d)", reason="Reason for the timeout")
+    @app_commands.choices(duration=[
         app_commands.Choice(name="1d", value="1d"),
         app_commands.Choice(name="3d", value="3d"),
         app_commands.Choice(name="7d", value="7d")
     ])
-    async def timeout(self, ctx, member: discord.Member, minutes: str, *, reason: str = "No reason provided"):
-        await self._do_timeout(ctx, member, minutes, reason)
+    async def timeout(self, ctx, member: discord.Member, duration: str, *, reason: str = "No reason provided"):
+        await self._do_timeout(ctx, member, duration, reason)
 
     @commands.hybrid_command(name="mute", description="Mute a member (uses role and/or timeout)", aliases=["m"])
     @is_staff()
-    @app_commands.describe(member="The member to mute", minutes="Duration (e.g. 1d, 3d, 7d)", reason="Reason for the mute")
-    @app_commands.choices(minutes=[
+    @app_commands.describe(member="The member to mute", duration="Duration (e.g. 1d, 3d, 7d)", reason="Reason for the mute")
+    @app_commands.choices(duration=[
         app_commands.Choice(name="1d", value="1d"),
         app_commands.Choice(name="3d", value="3d"),
         app_commands.Choice(name="7d", value="7d")
     ])
-    async def mute(self, ctx, member: discord.Member, minutes: str = None, *, reason: str = "No reason provided"):
-        if minutes and not ctx.interaction:
+    async def mute(self, ctx, member: discord.Member, duration: str = None, *, reason: str = "No reason provided"):
+        if duration and not ctx.interaction:
             try:
-                parse_duration(minutes)
+                parse_duration(duration)
             except ValueError:
                 # Omitted duration, it's actually the start of the reason in a prefix command
                 if reason == "No reason provided":
-                    reason = minutes
+                    reason = duration
                 else:
-                    reason = f"{minutes} {reason}"
-                minutes = None
+                    reason = f"{duration} {reason}"
+                duration = None
         
-        await self._do_mute(ctx, member, minutes, reason)
+        await self._do_mute(ctx, member, duration, reason)
 
     @commands.hybrid_command(name="unmute", description="Unmute a member (removes role and timeout)", aliases=["um"])
     @is_staff()
