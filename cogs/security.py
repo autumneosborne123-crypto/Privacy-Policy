@@ -1,4 +1,5 @@
 import discord
+from discord import app_commands
 import json
 import urllib.parse
 from discord.ext import commands
@@ -242,7 +243,7 @@ class Security(commands.Cog):
             if (discord.utils.utcnow() - entry.created_at).total_seconds() < 10:
                 await self.handle_nuke_attempt(member.guild, entry.user, "kick")
 
-    @commands.command(name="joins", description="Show join/leave statistics chart", aliases=["stats_joins"])
+    @commands.hybrid_command(name="joins", description="Show join/leave statistics chart")
     @is_staff()
     async def joins(self, ctx):
         stats = await self.bot.db.get_daily_stats(ctx.guild.id, days=7)
@@ -299,7 +300,7 @@ class Security(commands.Cog):
         embed.set_image(url=chart_url)
         await ctx.send(embed=embed)
 
-    @commands.command(name="security_status", description="Show bot security monitoring status")
+    @commands.hybrid_command(name="security_status", description="Show bot security monitoring status")
     @is_staff()
     async def security_status(self, ctx):
         embed = discord.Embed(title="🛡️ Security Status", color=0x2b2d31)
@@ -312,8 +313,9 @@ class Security(commands.Cog):
         embed.add_field(name="Raid Mode", value="🔴 Active" if self.raid_mode else "🟢 Inactive", inline=True)
         await ctx.send(embed=embed)
 
-    @commands.command(name="raidmode", description="Toggle Raid Mode manually")
+    @commands.hybrid_command(name="raidmode", description="Toggle Raid Mode manually")
     @is_staff()
+    @app_commands.describe(status="Enable (True) or Disable (False) Raid Mode")
     async def raidmode(self, ctx, status: bool):
         self.raid_mode = status
         state = "enabled" if status else "disabled"
