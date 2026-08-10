@@ -46,7 +46,7 @@ def is_admin_or_moderator():
         # Check for role names (case-insensitive)
         target_roles = [
             "admin", "admins", "administrator", "administrators", "head admin", "co-owner", "owner", "founder",
-            "mod", "moderator", "moderators", "sr.mod", "sernior mod", "senior mod", "moderation"
+            "mod", "moderator", "moderators", "sr.mod", "sernior mod", "senior mod", "moderation", "security"
         ]
         for role in ctx.author.roles:
             if role.name.lower() in target_roles:
@@ -77,7 +77,7 @@ def is_staff():
         target_roles = [
             "mod", "sr.mod", "sernior mod", "senior mod", "moderation", 
             "admin", "head admin", "co-owner", "owner", "founder",
-            "administrator", "moderator", "staff"
+            "administrator", "moderator", "staff", "security"
         ]
         for role in ctx.author.roles:
             if role.name.lower() in target_roles:

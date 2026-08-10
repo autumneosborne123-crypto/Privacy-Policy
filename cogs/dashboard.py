@@ -48,6 +48,7 @@ class ModuleButton(ui.Button):
         self.value = value
 
     async def callback(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
         settings = await self.view.bot.db.get_all_guild_settings(interaction.guild.id)
         disabled_raw = settings.get('disabled_cogs') or ""
         disabled = [d.strip().lower() for d in disabled_raw.split(',') if d.strip()]
@@ -64,7 +65,7 @@ class ModuleButton(ui.Button):
         await self.view.bot.db.set_guild_setting(interaction.guild.id, "disabled_cogs", new_disabled if new_disabled else None)
         
         status = "enabled" if enabled else "disabled"
-        await interaction.response.send_message(f"✅ Module `{self.value}` has been **{status}**.", ephemeral=True)
+        await interaction.followup.send(f"✅ Module `{self.value}` has been **{status}**.", ephemeral=True)
         # We could update the view colors here too but keep it simple for now
 
 class LoggingToggleView(DashboardBaseView):
@@ -95,13 +96,14 @@ class LoggingButton(ui.Button):
         self.value = value
 
     async def callback(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
         settings = await self.view.bot.db.get_all_guild_settings(interaction.guild.id)
         current = settings.get(self.value)
         new_status = 0 if current != 0 else 1
         
         await self.view.bot.db.set_guild_setting(interaction.guild.id, self.value, new_status)
         status_text = "enabled" if new_status == 1 else "disabled"
-        await interaction.response.send_message(f"✅ Logging for `{self.label}` has been **{status_text}**.", ephemeral=True)
+        await interaction.followup.send(f"✅ Logging for `{self.label}` has been **{status_text}**.", ephemeral=True)
 
 class SecurityToggleView(DashboardBaseView):
     def __init__(self, bot, guild, user, original_view):
@@ -130,13 +132,14 @@ class SecurityButton(ui.Button):
         self.value = value
 
     async def callback(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
         settings = await self.view.bot.db.get_all_guild_settings(interaction.guild.id)
         current = settings.get(self.value)
         new_status = 0 if current != 0 else 1
         
         await self.view.bot.db.set_guild_setting(interaction.guild.id, self.value, new_status)
         status_text = "enabled" if new_status == 1 else "disabled"
-        await interaction.response.send_message(f"✅ Security tool `{self.label}` has been **{status_text}**.", ephemeral=True)
+        await interaction.followup.send(f"✅ Security tool `{self.label}` has been **{status_text}**.", ephemeral=True)
 
 class DashboardView(DashboardBaseView):
     def __init__(self, bot, guild, user):
@@ -169,14 +172,16 @@ class DashboardView(DashboardBaseView):
         admin_select = ui.RoleSelect(placeholder="Select Admin Role...", min_values=1, max_values=1)
         
         async def staff_callback(interaction: discord.Interaction):
+            await interaction.response.defer(ephemeral=True)
             role = staff_select.values[0]
             await self.bot.db.set_guild_setting(self.guild.id, "staff_role_id", str(role.id))
-            await interaction.response.send_message(f"✅ Staff role set to {role.mention}", ephemeral=True)
+            await interaction.followup.send(f"✅ Staff role set to {role.mention}", ephemeral=True)
 
         async def admin_callback(interaction: discord.Interaction):
+            await interaction.response.defer(ephemeral=True)
             role = admin_select.values[0]
             await self.bot.db.set_guild_setting(self.guild.id, "admin_role_id", str(role.id))
-            await interaction.response.send_message(f"✅ Admin role set to {role.mention}", ephemeral=True)
+            await interaction.followup.send(f"✅ Admin role set to {role.mention}", ephemeral=True)
             
         staff_select.callback = staff_callback
         admin_select.callback = admin_callback

@@ -246,6 +246,7 @@ class Security(commands.Cog):
     @commands.hybrid_command(name="joins", description="Show join/leave statistics chart")
     @is_staff()
     async def joins(self, ctx):
+        await ctx.defer()
         stats = await self.bot.db.get_daily_stats(ctx.guild.id, days=7)
         if not stats:
             return await ctx.send("No statistical data collected yet.")
@@ -300,9 +301,10 @@ class Security(commands.Cog):
         embed.set_image(url=chart_url)
         await ctx.send(embed=embed)
 
-    @commands.hybrid_command(name="security_status", description="Show bot security monitoring status")
+    @commands.hybrid_command(name="security_status", aliases=["security"], description="Show bot security monitoring status")
     @is_staff()
     async def security_status(self, ctx):
+        await ctx.defer()
         embed = discord.Embed(title="🛡️ Security Status", color=0x2b2d31)
         embed.add_field(name="Auto-Ban Suspicious Accounts", value="✅ Enabled", inline=True)
         embed.add_field(name="Scam Detection", value=f"✅ {len(self.SCAM_DOMAINS)} domains monitored", inline=True)
@@ -317,6 +319,7 @@ class Security(commands.Cog):
     @is_staff()
     @app_commands.describe(status="Enable (True) or Disable (False) Raid Mode")
     async def raidmode(self, ctx, status: bool):
+        await ctx.defer()
         self.raid_mode = status
         state = "enabled" if status else "disabled"
         await ctx.send(f"✅ Raid Mode has been **{state}**.")
