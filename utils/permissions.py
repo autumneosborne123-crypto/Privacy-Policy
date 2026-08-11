@@ -1,6 +1,13 @@
 import discord
 from discord.ext import commands
 
+def safe_int(val):
+    try:
+        if not val: return None
+        return int(val)
+    except (ValueError, TypeError):
+        return None
+
 def is_admin():
     async def predicate(ctx):
         if ctx.guild is None:
@@ -11,8 +18,9 @@ def is_admin():
         
         # Check for configured Admin Role ID
         admin_role_id = await ctx.bot.db.get_guild_setting(ctx.guild.id, "admin_role_id")
-        if admin_role_id:
-            role = ctx.guild.get_role(int(admin_role_id))
+        rid = safe_int(admin_role_id)
+        if rid:
+            role = ctx.guild.get_role(rid)
             if role and role in ctx.author.roles:
                 return True
         
@@ -37,9 +45,10 @@ def is_admin_or_moderator():
         admin_role_id = await ctx.bot.db.get_guild_setting(ctx.guild.id, "admin_role_id")
         staff_role_id = await ctx.bot.db.get_guild_setting(ctx.guild.id, "staff_role_id")
         
-        for rid in [admin_role_id, staff_role_id]:
+        for raw_rid in [admin_role_id, staff_role_id]:
+            rid = safe_int(raw_rid)
             if rid:
-                role = ctx.guild.get_role(int(rid))
+                role = ctx.guild.get_role(rid)
                 if role and role in ctx.author.roles:
                     return True
         
@@ -67,9 +76,10 @@ def is_staff():
         admin_role_id = await ctx.bot.db.get_guild_setting(ctx.guild.id, "admin_role_id")
         staff_role_id = await ctx.bot.db.get_guild_setting(ctx.guild.id, "staff_role_id")
         
-        for rid in [admin_role_id, staff_role_id]:
+        for raw_rid in [admin_role_id, staff_role_id]:
+            rid = safe_int(raw_rid)
             if rid:
-                role = ctx.guild.get_role(int(rid))
+                role = ctx.guild.get_role(rid)
                 if role and role in ctx.author.roles:
                     return True
         
@@ -96,8 +106,9 @@ def is_senior_staff():
         
         # Check for configured Admin Role ID
         admin_role_id = await ctx.bot.db.get_guild_setting(ctx.guild.id, "admin_role_id")
-        if admin_role_id:
-            role = ctx.guild.get_role(int(admin_role_id))
+        rid = safe_int(admin_role_id)
+        if rid:
+            role = ctx.guild.get_role(rid)
             if role and role in ctx.author.roles:
                 return True
         

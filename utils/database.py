@@ -7,6 +7,7 @@ import time
 class Database:
     def __init__(self, db_path):
         self.db_path = db_path
+        self.settings_cache = {}
 
     def get_db(self):
         return aiosqlite.connect(self.db_path)
@@ -386,24 +387,39 @@ class Database:
         return await self.get_guild_setting(guild_id, "mute_role_id", int)
 
     async def set_guild_setting(self, guild_id, key, value):
+        gid = str(guild_id)
         async with aiosqlite.connect(self.db_path) as db:
-            await db.execute(f"INSERT INTO guild_settings (guild_id, {key}) VALUES (?, ?) ON CONFLICT(guild_id) DO UPDATE SET {key} = excluded.{key}", (str(guild_id), value))
+            await db.execute(f"INSERT INTO guild_settings (guild_id, {key}) VALUES (?, ?) ON CONFLICT(guild_id) DO UPDATE SET {key} = excluded.{key}", (gid, value))
             await db.commit()
+        
+        # Invalidate cache
+        if gid in self.settings_cache:
+            del self.settings_cache[gid]
 
     async def get_guild_setting(self, guild_id, key, type_cast=None):
-        async with aiosqlite.connect(self.db_path) as db:
-            async with db.execute(f"SELECT {key} FROM guild_settings WHERE guild_id = ?", (str(guild_id),)) as cursor:
-                row = await cursor.fetchone()
-                if row and row[0] is not None:
-                    return type_cast(row[0]) if type_cast else row[0]
+        settings = await self.get_all_guild_settings(guild_id)
+        val = settings.get(key)
+        if val is not None:
+            try:
+                return type_cast(val) if type_cast else val
+            except:
                 return None
+        return None
 
     async def get_all_guild_settings(self, guild_id):
+        gid = str(guild_id)
+        if gid in self.settings_cache:
+            # Cache for 10 seconds to avoid spamming DB in a single interaction/burst
+            if time.time() - self.settings_cache[gid]['time'] < 10:
+                return self.settings_cache[gid]['data']
+
         async with aiosqlite.connect(self.db_path) as db:
             db.row_factory = aiosqlite.Row
-            async with db.execute("SELECT * FROM guild_settings WHERE guild_id = ?", (str(guild_id),)) as cursor:
+            async with db.execute("SELECT * FROM guild_settings WHERE guild_id = ?", (gid,)) as cursor:
                 row = await cursor.fetchone()
-                return dict(row) if row else {}
+                data = dict(row) if row else {}
+                self.settings_cache[gid] = {'data': data, 'time': time.time()}
+                return data
 
     async def is_guild_premium(self, guild_id):
         async with aiosqlite.connect(self.db_path) as db:

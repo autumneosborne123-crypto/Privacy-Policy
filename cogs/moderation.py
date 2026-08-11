@@ -163,6 +163,7 @@ class Moderation(commands.Cog):
     @is_staff()
     async def mod_group(self, ctx):
         """Main command for moderation. Use .mod <command> or just .mod for help."""
+        await ctx.defer()
         if ctx.invoked_subcommand is None:
             embed = discord.Embed(title="⚖️ Moderation System", description="Use `.mod <command>` to execute actions.", color=0x2b2d31)
             

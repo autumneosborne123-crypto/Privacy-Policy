@@ -13,6 +13,7 @@ class ConfigCog(commands.Cog, name="Config"):
     @is_admin()
     async def config_group(self, ctx):
         """Main command for configuration. Use .config <command>."""
+        await ctx.defer()
         if ctx.invoked_subcommand is None:
             embed = discord.Embed(title="⚙️ Configuration System", description="Use `.config <command>` to manage server settings.", color=0x2b2d31)
             cmds = ["settings", "welcome", "goodbye", "leveling", "music", "log", "quotes", "roles", "toggle", "mute_role"]

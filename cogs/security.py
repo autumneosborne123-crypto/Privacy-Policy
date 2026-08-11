@@ -247,6 +247,7 @@ class Security(commands.Cog):
     @is_staff()
     async def security_group(self, ctx):
         """Main command for security. Use .security <command>."""
+        await ctx.defer()
         if ctx.invoked_subcommand is None:
             embed = discord.Embed(title="🛡️ Security System", description="Use `.security <command>` to manage protections.", color=0x2b2d31)
             cmds = ["joins", "status", "raidmode"]
