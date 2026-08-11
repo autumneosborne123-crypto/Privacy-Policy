@@ -243,7 +243,17 @@ class Security(commands.Cog):
             if (discord.utils.utcnow() - entry.created_at).total_seconds() < 10:
                 await self.handle_nuke_attempt(member.guild, entry.user, "kick")
 
-    @commands.hybrid_command(name="joins", description="Show join/leave statistics chart")
+    @commands.hybrid_group(name="security", description="Security management command group", invoke_without_command=True)
+    @is_staff()
+    async def security_group(self, ctx):
+        """Main command for security. Use .security <command>."""
+        if ctx.invoked_subcommand is None:
+            embed = discord.Embed(title="🛡️ Security System", description="Use `.security <command>` to manage protections.", color=0x2b2d31)
+            cmds = ["joins", "status", "raidmode"]
+            embed.add_field(name="Available Commands", value=", ".join([f"`{c}`" for c in cmds]), inline=False)
+            await ctx.send(embed=embed)
+
+    @security_group.command(name="joins", description="Show join/leave statistics chart")
     @is_staff()
     async def joins(self, ctx):
         await ctx.defer()
@@ -301,7 +311,7 @@ class Security(commands.Cog):
         embed.set_image(url=chart_url)
         await ctx.send(embed=embed)
 
-    @commands.hybrid_command(name="security_status", aliases=["security"], description="Show bot security monitoring status")
+    @security_group.command(name="status", description="Show bot security monitoring status")
     @is_staff()
     async def security_status(self, ctx):
         await ctx.defer()
@@ -315,7 +325,7 @@ class Security(commands.Cog):
         embed.add_field(name="Raid Mode", value="🔴 Active" if self.raid_mode else "🟢 Inactive", inline=True)
         await ctx.send(embed=embed)
 
-    @commands.hybrid_command(name="raidmode", description="Toggle Raid Mode manually")
+    @security_group.command(name="raidmode", description="Toggle Raid Mode manually")
     @is_staff()
     @app_commands.describe(status="Enable (True) or Disable (False) Raid Mode")
     async def raidmode(self, ctx, status: bool):

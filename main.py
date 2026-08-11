@@ -355,13 +355,22 @@ class FlowerBot(commands.Bot):
         logging.info(f"Joined new guild: {guild.name} (ID: {guild.id})")
         
         # Initialize default settings
-        # Security defaults (1 = enabled) are already handled by None != 0 logic in cogs,
-        # but we can explicitly set them if we want to be sure.
         await self.db.set_guild_setting(guild.id, "anti_spam_enabled", 1)
         await self.db.set_guild_setting(guild.id, "anti_scam_enabled", 1)
         await self.db.set_guild_setting(guild.id, "anti_raid_enabled", 1)
         await self.db.set_guild_setting(guild.id, "anti_nuke_enabled", 1)
         
+        # Sync slash commands for this guild specifically for instant availability
+        if self.application_id:
+            try:
+                self.tree.copy_global_to(guild=guild)
+                await self.tree.sync(guild=guild)
+                logging.info(f"Successfully synced slash commands for guild {guild.id}")
+            except Exception as e:
+                logging.error(f"Failed to sync slash commands for guild {guild.id}: {e}")
+        else:
+            logging.warning(f"Skipping instant sync for guild {guild.id} (Application ID not yet set)")
+
         # Send welcome message to system channel or owner
         embed = discord.Embed(title="🌸 Thank you for inviting flowerbot.gg!", color=0x2b2d31)
         embed.description = (

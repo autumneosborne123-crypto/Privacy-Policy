@@ -294,7 +294,7 @@ class TestBotFeatures(unittest.IsolatedAsyncioTestCase):
         mock_channel.id = 789
         mock_channel.mention = "#levels"
         
-        await self.config_cog.set_level_channel.callback(self.config_cog, mock_ctx, mock_channel)
+        await self.config_cog.leveling.callback(self.config_cog, mock_ctx, notify_channel=mock_channel)
         
         self.bot.db.set_guild_setting.assert_called_once_with(123, "level_up_channel_id", "789")
         mock_ctx.send.assert_called_once()

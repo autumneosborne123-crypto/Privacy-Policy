@@ -364,5 +364,9 @@ class EmbedBuilderModal(ui.Modal, title="Interactive Embed Builder"):
         await interaction.response.send_message("Here is your embed!", embed=embed)
         await self.bot.log_action(interaction.guild, "📝 Embed Created (Builder)", f"Channel: {interaction.channel.mention}", moderator=interaction.user)
 
+    @commands.hybrid_command(name="ping", description="Check the bot's latency")
+    async def ping(self, ctx):
+        await ctx.send(f"Pong! {round(self.bot.latency * 1000)}ms")
+
 async def setup(bot):
     await bot.add_cog(Tools(bot))

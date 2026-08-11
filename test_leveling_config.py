@@ -111,7 +111,7 @@ class TestLevelingConfig(unittest.IsolatedAsyncioTestCase):
         self.assertIn(member.mention, embed.description)
 
     async def test_set_leveling_channel_command(self):
-        """Test the set_leveling_channel command in Config cog."""
+        """Test the leveling command in Config cog."""
         ctx = AsyncMock()
         ctx.guild.id = 123
         
@@ -120,16 +120,16 @@ class TestLevelingConfig(unittest.IsolatedAsyncioTestCase):
         target_channel.mention = "<#111>"
         
         # Set channel
-        await self.config_cog.set_leveling_channel.callback(self.config_cog, ctx, channel=target_channel)
+        await self.config_cog.leveling.callback(self.config_cog, ctx, restrict_channel=target_channel)
         setting = await self.db.get_guild_setting(123, "leveling_channel_id", int)
         self.assertEqual(setting, 111)
-        ctx.send.assert_called_with(f"Leveling commands are now restricted to {target_channel.mention}!", ephemeral=True)
+        ctx.send.assert_called_with("✅ Leveling settings updated!", ephemeral=True)
         
         # Reset channel
-        await self.config_cog.set_leveling_channel.callback(self.config_cog, ctx, channel=None)
+        await self.config_cog.leveling.callback(self.config_cog, ctx, reset_restrict=True)
         setting = await self.db.get_guild_setting(123, "leveling_channel_id", int)
         self.assertIsNone(setting)
-        ctx.send.assert_called_with("Leveling commands can now be used in any channel.", ephemeral=True)
+        ctx.send.assert_called_with("✅ Leveling settings updated!", ephemeral=True)
 
     async def test_leveling_command_restriction(self):
         """Test the is_leveling_channel check logic."""

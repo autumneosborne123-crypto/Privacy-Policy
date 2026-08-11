@@ -48,14 +48,14 @@ class TestDailyEncouragement(unittest.IsolatedAsyncioTestCase):
         mock_channel.id = 123456789
         mock_channel.mention = "<#123456789>"
         
-        await self.config_cog.set_inspirational_quotes.callback(self.config_cog, mock_ctx, mock_channel)
+        await self.config_cog.quotes.callback(self.config_cog, mock_ctx, channel=mock_channel)
         
         # Check if DB was updated
         feeds = await self.db.get_quote_feeds()
         self.assertIn(("123", "123456789"), feeds)
         
         mock_ctx.send.assert_called_once()
-        self.assertIn("Inspirational quotes channel set to <#123456789>!", mock_ctx.send.call_args[0][0])
+        self.assertIn("Inspirational quotes will now be sent to <#123456789>", mock_ctx.send.call_args[0][0])
 
     @patch('aiohttp.ClientSession.get')
     async def test_send_daily_quote_task_logic_success(self, mock_get):

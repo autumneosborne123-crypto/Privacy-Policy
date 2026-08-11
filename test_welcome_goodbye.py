@@ -34,12 +34,12 @@ class TestWelcomeGoodbye(unittest.IsolatedAsyncioTestCase):
         mock_channel.id = 111
         mock_channel.mention = "<#111>"
         
-        # Test set_welcome (channel)
-        await self.config_cog.set_welcome.callback(self.config_cog, mock_ctx, mock_channel)
+        # Test welcome (channel)
+        await self.config_cog.welcome.callback(self.config_cog, mock_ctx, channel=mock_channel)
         self.bot.db.set_guild_setting.assert_called_with(123, "welcome_channel_id", "111")
         
-        # Test set_welcome_message
-        await self.config_cog.set_welcome_message.callback(self.config_cog, mock_ctx, message="Welcome {member} to {guild}!")
+        # Test welcome (message)
+        await self.config_cog.welcome.callback(self.config_cog, mock_ctx, message="Welcome {member} to {guild}!")
         self.bot.db.set_guild_setting.assert_called_with(123, "welcome_message", "Welcome {member} to {guild}!")
 
     async def test_set_goodbye_commands(self):
@@ -49,12 +49,12 @@ class TestWelcomeGoodbye(unittest.IsolatedAsyncioTestCase):
         mock_channel.id = 222
         mock_channel.mention = "<#222>"
         
-        # Test set_goodbye (channel)
-        await self.config_cog.set_goodbye.callback(self.config_cog, mock_ctx, mock_channel)
+        # Test goodbye (channel)
+        await self.config_cog.goodbye.callback(self.config_cog, mock_ctx, channel=mock_channel)
         self.bot.db.set_guild_setting.assert_called_with(123, "goodbye_channel_id", "222")
         
-        # Test set_goodbye_message
-        await self.config_cog.set_goodbye_message.callback(self.config_cog, mock_ctx, message="Bye {member}!")
+        # Test goodbye (message)
+        await self.config_cog.goodbye.callback(self.config_cog, mock_ctx, message="Bye {member}!")
         self.bot.db.set_guild_setting.assert_called_with(123, "goodbye_message", "Bye {member}!")
 
     async def test_on_member_join_configurable(self):
