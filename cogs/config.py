@@ -227,6 +227,9 @@ class ConfigCog(commands.Cog, name="Config"):
     @config_group.command(name="toggle", description="Enable or disable a module or log category")
     @is_admin()
     async def toggle(self, ctx, module: str = None, log_category: str = None, enabled: bool = True):
+        await self._do_toggle(ctx, module, log_category, enabled)
+
+    async def _do_toggle(self, ctx, module: str = None, log_category: str = None, enabled: bool = True):
         if module:
             settings = await self.bot.db.get_all_guild_settings(ctx.guild.id)
             disabled_raw = settings.get('disabled_cogs') or ""
@@ -242,6 +245,20 @@ class ConfigCog(commands.Cog, name="Config"):
         if log_category:
             await self.bot.db.set_guild_setting(ctx.guild.id, log_category, 1 if enabled else 0)
             await ctx.send(f"✅ Log category `{log_category}` {'enabled' if enabled else 'disabled'}.", ephemeral=True)
+
+    @commands.hybrid_command(name="enable", description="Enable a bot module (e.g. moderation, adventure)")
+    @is_admin()
+    async def enable(self, ctx, module: str):
+        """Super easy command to enable a module for this server."""
+        await ctx.defer()
+        await self._do_toggle(ctx, module=module, enabled=True)
+
+    @commands.hybrid_command(name="disable", description="Disable a bot module (e.g. moderation, adventure)")
+    @is_admin()
+    async def disable(self, ctx, module: str):
+        """Super easy command to disable a module for this server."""
+        await ctx.defer()
+        await self._do_toggle(ctx, module=module, enabled=False)
 
     @commands.Cog.listener()
     async def on_member_join(self, member):

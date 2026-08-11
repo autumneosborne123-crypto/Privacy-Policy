@@ -4,9 +4,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import discord
 from discord.ext import commands
 from main import FlowerBot
-from cogs.dashboard import Dashboard, DashboardView
 from utils.database import Database
 import time
+from cogs.config import ConfigCog
 
 class MockRole:
     def __init__(self, id, name, position=1):
@@ -70,32 +70,22 @@ class TestMultiServer(unittest.IsolatedAsyncioTestCase):
         self.guild.owner.send.assert_called()
         print("on_guild_join initialization: PASSED")
 
-    async def test_dashboard_overview(self):
-        print("\nTesting Dashboard overview creation...")
-        view = DashboardView(self.bot, self.guild, self.author)
+    async def test_enable_disable_commands(self):
+        print("\nTesting Enable/Disable commands...")
+        cog = ConfigCog(self.bot)
         
-        # Mock settings for overview
-        self.bot.db.get_all_guild_settings.return_value = {
-            'disabled_cogs': 'fun,music',
-            'anti_spam_enabled': 1,
-            'staff_role_id': '777'
-        }
-        self.guild.get_role.side_effect = lambda rid: MockRole(rid, "Staff") if str(rid) == '777' else None
+        # Test disable
+        self.bot.db.get_all_guild_settings.return_value = {}
+        await cog.disable.callback(cog, self.ctx, "moderation")
+        self.bot.db.set_guild_setting.assert_any_call(123, "disabled_cogs", "moderation")
+        self.ctx.send.assert_called_with("✅ Module `moderation` disabled.", ephemeral=True)
         
-        embed = await view.create_overview_embed()
-        self.assertIn("Control Panel", embed.title)
-        self.assertIn("✅ **Moderation**", embed.fields[0].value)
-        self.assertIn("✅ **Logging**", embed.fields[0].value)
-        self.assertIn("Staff", embed.fields[3].value)
-        print("Dashboard overview creation: PASSED")
-
-    async def test_dashboard_command_hybrid(self):
-        print("\nTesting Dashboard command registration...")
-        cog = Dashboard(self.bot)
-        self.assertEqual(cog.dashboard.name, "dashboard")
-        self.assertIn("dash", cog.dashboard.aliases)
-        self.assertIsInstance(cog.dashboard, commands.HybridCommand)
-        print("Dashboard command registration: PASSED")
+        # Test enable
+        self.bot.db.get_all_guild_settings.return_value = {'disabled_cogs': 'moderation,fun'}
+        await cog.enable.callback(cog, self.ctx, "moderation")
+        self.bot.db.set_guild_setting.assert_any_call(123, "disabled_cogs", "fun")
+        self.ctx.send.assert_called_with("✅ Module `moderation` enabled.", ephemeral=True)
+        print("Enable/Disable commands: PASSED")
 
 if __name__ == "__main__":
     unittest.main()

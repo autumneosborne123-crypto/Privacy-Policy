@@ -125,8 +125,6 @@ class HelpSelect(discord.ui.Select):
             elif cog_name == "Roles": emoji = "🎭"
             elif cog_name == "Tools": emoji = "🛠️"
             elif cog_name == "Stories": emoji = "📖"
-            elif cog_name == "Dashboard": emoji = "🌸"
-            elif cog_name == "Premium": emoji = "💎"
             elif cog_name == "AFK": emoji = "💤"
             else: emoji = "📁"
             
@@ -175,18 +173,6 @@ class HelpView(discord.ui.View):
         self.ctx = ctx
         self.add_item(HelpSelect(bot, prefix))
         
-        if is_admin:
-            btn = discord.ui.Button(label="Dashboard", emoji="🌸", style=discord.ButtonStyle.success, row=1)
-            btn.callback = self.dashboard_callback
-            self.add_item(btn)
-            
-    async def dashboard_callback(self, interaction: discord.Interaction):
-        await interaction.response.defer(ephemeral=True)
-        from cogs.dashboard import DashboardView
-        view = DashboardView(self.bot, self.ctx.guild, self.ctx.author)
-        embed = await view.create_overview_embed()
-        await interaction.followup.send(embed=embed, view=view, ephemeral=True)
-        
     def create_home_embed(self):
         embed = discord.Embed(title="🌸 flowerbot.gg Help Menu", color=0x2b2d31)
         embed.description = (
@@ -226,7 +212,7 @@ class FlowerBot(commands.Bot):
         if not ctx.cog: return True
         
         # Core cogs should always be accessible to avoid lockouts
-        core_cogs = ["System", "Config", "Dashboard", "Tools", "Logging", "Security"]
+        core_cogs = ["System", "Config", "Tools", "Logging", "Security"]
         if ctx.cog.qualified_name in core_cogs: return True
         
         settings = await self.db.get_all_guild_settings(ctx.guild.id)
@@ -248,7 +234,7 @@ class FlowerBot(commands.Bot):
         await self.db.init()
         
         # Load Cogs
-        cogs = ['cogs.leveling', 'cogs.music', 'cogs.security', 'cogs.fun', 'cogs.moderation', 'cogs.config', 'cogs.system', 'cogs.games', 'cogs.media', 'cogs.economy', 'cogs.adventure', 'cogs.achievements', 'cogs.logging', 'cogs.roles', 'cogs.tools', 'cogs.premium', 'cogs.afk', 'cogs.dashboard']
+        cogs = ['cogs.leveling', 'cogs.music', 'cogs.security', 'cogs.fun', 'cogs.moderation', 'cogs.config', 'cogs.system', 'cogs.games', 'cogs.media', 'cogs.economy', 'cogs.adventure', 'cogs.achievements', 'cogs.logging', 'cogs.roles', 'cogs.tools', 'cogs.premium', 'cogs.afk']
         for cog in cogs:
             try:
                 await self.load_extension(cog)
@@ -400,7 +386,7 @@ class FlowerBot(commands.Bot):
             f"Hello! I'm **flowerbot.gg**, a multi-purpose bot designed to help you moderate, "
             f"protect, and entertain your community in **{guild.name}**.\n\n"
             "🚀 **Quick Start:**\n"
-            "1. Use `.dashboard` to open the interactive management menu.\n"
+            "1. Use `.config toggle <module>` to turn features on or off.\n"
             "2. Use `.settings` to view your current configuration.\n"
             "3. Use `.help` to see all available commands.\n"
             "4. Use `.diagnose` to check if I have all required permissions.\n\n"
@@ -447,25 +433,7 @@ class FlowerBot(commands.Bot):
             
             return await ctx.send(embed=embed, ephemeral=True)
 
-        # Check admin for dashboard shortcut
-        is_admin_user = False
-        if ctx.guild:
-            if ctx.author.guild_permissions.administrator:
-                is_admin_user = True
-            else:
-                admin_role_id = await self.db.get_guild_setting(ctx.guild.id, "admin_role_id")
-                if admin_role_id:
-                    role = ctx.guild.get_role(int(admin_role_id))
-                    if role and role in ctx.author.roles:
-                        is_admin_user = True
-                if not is_admin_user:
-                    target_roles = ["admin", "admins", "administrator", "administrators", "head admin", "co-owner", "owner", "founder"]
-                    for role in ctx.author.roles:
-                        if role.name.lower() in target_roles:
-                            is_admin_user = True
-                            break
-
-        view = HelpView(self, prefix, ctx, is_admin=is_admin_user)
+        view = HelpView(self, prefix, ctx)
         embed = view.create_home_embed()
         await ctx.send(embed=embed, view=view, ephemeral=True)
 
