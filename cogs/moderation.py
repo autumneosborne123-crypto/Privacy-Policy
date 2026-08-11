@@ -185,6 +185,7 @@ class Moderation(commands.Cog):
         app_commands.Choice(name="7d", value="7d")
     ])
     async def timeout(self, ctx, member: discord.Member, duration: str, *, reason: str = "No reason provided"):
+        await ctx.defer()
         await self._do_timeout(ctx, member, duration, reason)
 
     @mod_group.command(name="mute", description="Mute a member (uses role and/or timeout)", aliases=["m"])
@@ -196,6 +197,7 @@ class Moderation(commands.Cog):
         app_commands.Choice(name="7d", value="7d")
     ])
     async def mute(self, ctx, member: discord.Member, duration: str = None, *, reason: str = "No reason provided"):
+        await ctx.defer()
         if duration and not ctx.interaction:
             try:
                 parse_duration(duration)
@@ -212,6 +214,7 @@ class Moderation(commands.Cog):
     @mod_group.command(name="unmute", description="Unmute a member (removes role and timeout)", aliases=["um"])
     @is_staff()
     async def unmute(self, ctx, member: discord.Member, *, reason: str = "Unmuted by moderator"):
+        await ctx.defer()
         if not await self._check_hierarchy(ctx, member): return
         try:
             mute_role_id = await self.bot.db.get_mute_role(ctx.guild.id)
@@ -250,6 +253,7 @@ class Moderation(commands.Cog):
     @is_senior_staff()
     @commands.bot_has_permissions(ban_members=True)
     async def ban(self, ctx, user: typing.Union[discord.Member, discord.User], *, reason: str = "No reason provided"):
+        await ctx.defer()
         if not await self._check_hierarchy(ctx, user): return
 
         try:
@@ -268,6 +272,7 @@ class Moderation(commands.Cog):
     @is_staff()
     @commands.bot_has_permissions(kick_members=True)
     async def kick(self, ctx, member: discord.Member, *, reason: str = "No reason provided"):
+        await ctx.defer()
         if not await self._check_hierarchy(ctx, member): return
 
         try:
@@ -286,6 +291,7 @@ class Moderation(commands.Cog):
     @is_senior_staff()
     @commands.bot_has_permissions(ban_members=True)
     async def unban(self, ctx, user: discord.User, *, reason: str = "No reason provided"):
+        await ctx.defer()
         try:
             await ctx.guild.unban(user, reason=reason)
             await ctx.send(f"✅ Successfully unbanned {user.name}. Reason: {reason}")
@@ -307,6 +313,7 @@ class Moderation(commands.Cog):
     @mod_group.command(name="warn", description="Warn a member")
     @is_staff()
     async def warn(self, ctx, member: discord.Member, *, reason: str = "No reason provided"):
+        await ctx.defer()
         if not await self._check_hierarchy(ctx, member): return
         try:
             await self.bot.db.add_warn(member.id, ctx.guild.id, ctx.author.id, reason)
@@ -325,6 +332,7 @@ class Moderation(commands.Cog):
     @mod_group.command(name="warns", description="Check a user's warnings", aliases=["warnings"])
     @is_staff()
     async def warns(self, ctx, member: typing.Union[discord.Member, discord.User]):
+        await ctx.defer()
         try:
             warn_list = await self.bot.db.get_warns(member.id, ctx.guild.id)
             if not warn_list:

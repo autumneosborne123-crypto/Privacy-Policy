@@ -80,6 +80,7 @@ class ConfigCog(commands.Cog, name="Config"):
     @config_group.command(name="settings", description="Show current bot settings")
     @is_admin()
     async def settings(self, ctx):
+        await ctx.defer()
         embed = discord.Embed(title="⚙️ Server Settings", color=0x2b2d31)
         
         settings = await self.bot.db.get_all_guild_settings(ctx.guild.id)

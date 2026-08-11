@@ -181,10 +181,11 @@ class HelpView(discord.ui.View):
             self.add_item(btn)
             
     async def dashboard_callback(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)
         from cogs.dashboard import DashboardView
         view = DashboardView(self.bot, self.ctx.guild, self.ctx.author)
         embed = await view.create_overview_embed()
-        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+        await interaction.followup.send(embed=embed, view=view, ephemeral=True)
         
     def create_home_embed(self):
         embed = discord.Embed(title="🌸 flowerbot.gg Help Menu", color=0x2b2d31)
@@ -224,8 +225,9 @@ class FlowerBot(commands.Bot):
         if not ctx.guild: return True
         if not ctx.cog: return True
         
-        # System, Config, and Dashboard cogs should always be accessible
-        if ctx.cog.qualified_name in ["System", "Config", "Dashboard"]: return True
+        # Core cogs should always be accessible to avoid lockouts
+        core_cogs = ["System", "Config", "Dashboard", "Tools", "Logging", "Security"]
+        if ctx.cog.qualified_name in core_cogs: return True
         
         settings = await self.db.get_all_guild_settings(ctx.guild.id)
         disabled_raw = settings.get('disabled_cogs')
@@ -254,8 +256,29 @@ class FlowerBot(commands.Bot):
             except Exception as e:
                 logging.error(f"Failed to load extension {cog}: {e}")
 
+        # Sync slash commands
+        self.tree.on_error = self.on_app_command_error
         await self.tree.sync()
         logging.info(f"Synced slash commands for {self.user}")
+
+    async def on_app_command_error(self, interaction: discord.Interaction, error: discord.app_commands.AppCommandError):
+        # Unwrap TransformerError or other common wrappers
+        if hasattr(error, 'original'):
+            error = error.original
+            
+        if isinstance(error, discord.app_commands.CheckFailure):
+            try: await interaction.response.send_message("❌ Access Denied: You do not have permission to use this command or it is disabled.", ephemeral=True)
+            except: 
+                try: await interaction.followup.send("❌ Access Denied: You do not have permission to use this command or it is disabled.", ephemeral=True)
+                except: pass
+        elif isinstance(error, discord.app_commands.CommandNotFound):
+            pass
+        else:
+            logging.error(f"Slash Command Error: {error}")
+            try: await interaction.response.send_message(f"❌ An error occurred: `{error}`", ephemeral=True)
+            except:
+                try: await interaction.followup.send(f"❌ An error occurred: `{error}`", ephemeral=True)
+                except: pass
 
     async def update_balance(self, user_id, amount):
         await self.db.update_balance(user_id, amount)
@@ -447,6 +470,10 @@ class FlowerBot(commands.Bot):
         await ctx.send(embed=embed, view=view, ephemeral=True)
 
     async def on_command_error(self, ctx, error):
+        # Unwrap HybridCommandError
+        if isinstance(error, commands.HybridCommandError):
+            error = error.original
+
         embed = discord.Embed(color=0xff4b4b) # Red for errors
         
         if isinstance(error, commands.MissingPermissions):
