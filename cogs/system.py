@@ -37,10 +37,23 @@ class System(commands.Cog):
 
     @commands.command(name="sync")
     @is_admin()
-    async def sync(self, ctx):
+    async def sync(self, ctx, guild_id: str = None):
+        """Sync slash commands. Use 'guild' as argument to sync to current guild."""
         try:
-            fmt = await self.bot.tree.sync()
-            await ctx.send(f"✅ Synced {len(fmt)} commands to current guild.")
+            if guild_id == "guild":
+                self.bot.tree.copy_global_to(guild=ctx.guild)
+                fmt = await self.bot.tree.sync(guild=ctx.guild)
+                await ctx.send(f"✅ Synced {len(fmt)} commands to current guild.")
+            elif guild_id:
+                guild = self.bot.get_guild(int(guild_id))
+                if not guild:
+                    return await ctx.send("❌ Guild not found.")
+                self.bot.tree.copy_global_to(guild=guild)
+                fmt = await self.bot.tree.sync(guild=guild)
+                await ctx.send(f"✅ Synced {len(fmt)} commands to guild {guild.name}.")
+            else:
+                fmt = await self.bot.tree.sync()
+                await ctx.send(f"✅ Synced {len(fmt)} global commands.")
         except Exception as e:
             await ctx.send(f"❌ Failed to sync: {e}")
 
