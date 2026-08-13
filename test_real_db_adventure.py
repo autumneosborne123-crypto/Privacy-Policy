@@ -23,6 +23,7 @@ class TestRealDBAdventure(unittest.IsolatedAsyncioTestCase):
         self.adventure_cog = Adventure(self.bot)
 
     async def asyncTearDown(self):
+        await self.db.close()
         if os.path.exists(self.db_path):
             os.remove(self.db_path)
 

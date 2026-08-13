@@ -21,6 +21,7 @@ class TestCharacterClaim(unittest.IsolatedAsyncioTestCase):
         self.games_cog = Games(self.bot)
 
     async def asyncTearDown(self):
+        await self.db.close()
         if os.path.exists(self.db_path):
             os.remove(self.db_path)
 

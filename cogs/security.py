@@ -30,13 +30,13 @@ class Security(commands.Cog):
         self.SLURS = ["nigger", "pussy", "nigga", "freaky", "foid", "moid", "horny", "slut", "whore", "dick","rape", "penis"]
         self.slur_pattern = re.compile(rf"\b({'|'.join(self.SLURS)})\b", re.IGNORECASE)
         
-        # Anti-Raid tracking
-        self.join_log = collections.deque(maxlen=20)
+        # Anti-Raid tracking (per guild)
+        self.join_log = collections.defaultdict(lambda: collections.deque(maxlen=20))
         self.message_track = collections.defaultdict(list)
-        self.raid_mode = False
+        self.raid_modes = collections.defaultdict(bool)
         
-        # Anti-Nuke tracking: user_id -> {action_type -> [timestamps]}
-        self.nuke_track = collections.defaultdict(lambda: collections.defaultdict(list))
+        # Anti-Nuke tracking: guild_id -> {user_id -> {action_type -> [timestamps]}}
+        self.nuke_track = collections.defaultdict(lambda: collections.defaultdict(lambda: collections.defaultdict(list)))
 
     def is_suspicious_bot(self, member: discord.Member) -> bool:
         account_age = discord.utils.utcnow() - member.created_at
@@ -70,13 +70,14 @@ class Security(commands.Cog):
         # Join Rate Limiting (Anti-Raid)
         if settings.get('anti_raid_enabled') != 0:
             now = time.time()
-            self.join_log.append(now)
-            recent_joins = [t for t in self.join_log if now - t < 30]
+            gid = member.guild.id
+            self.join_log[gid].append(now)
+            recent_joins = [t for t in self.join_log[gid] if now - t < 30]
             
             if len(recent_joins) >= 10:
-                if not self.raid_mode:
-                    self.raid_mode = True
-                    logging.warning("🚨 RAID DETECTED! Enabling Raid Mode.")
+                if not self.raid_modes[gid]:
+                    self.raid_modes[gid] = True
+                    logging.warning(f"🚨 RAID DETECTED in {member.guild.name} ({gid})! Enabling Raid Mode.")
                     try:
                         # Notify admins
                         channel = await self.bot.get_log_channel(member.guild)
@@ -87,10 +88,10 @@ class Security(commands.Cog):
                             await channel.send("🚨 **RAID DETECTED!** Anti-Raid Mode has been automatically enabled. New joins will be auto-kicked.")
                     except: pass
 
-            if self.raid_mode:
+            if self.raid_modes[gid]:
                 try:
                     await member.kick(reason="Anti-Raid: Raid mode enabled")
-                    logging.info(f"Raid-Kicked: {member.name}")
+                    logging.info(f"Raid-Kicked in {member.guild.name}: {member.name}")
                     return
                 except: pass
 
@@ -105,10 +106,10 @@ class Security(commands.Cog):
 
     @commands.Cog.listener()
     async def on_message(self, message):
-        if message.author.bot: return
+        if not message.guild or message.author.bot: return
         if message.author.id in self.bot.whitelisted_bots: return
 
-        settings = await self.bot.db.get_all_guild_settings(message.guild.id) if message.guild else {}
+        settings = await self.bot.db.get_all_guild_settings(message.guild.id)
         content_lower = message.content.lower()
         
         # Anti-Scam
@@ -150,19 +151,19 @@ class Security(commands.Cog):
         # Anti-Spam (Message Flood)
         if settings.get('anti_spam_enabled') != 0:
             now = time.time()
-            uid = message.author.id
-            self.message_track[uid].append(now)
+            track_key = (message.guild.id, message.author.id)
+            self.message_track[track_key].append(now)
             # Keep only last 5 seconds
-            self.message_track[uid] = [t for t in self.message_track[uid] if now - t < 5]
+            self.message_track[track_key] = [t for t in self.message_track[track_key] if now - t < 5]
             
             spam_threshold = settings.get('anti_spam_threshold', 5)
-            if len(self.message_track[uid]) >= spam_threshold:
+            if len(self.message_track[track_key]) >= spam_threshold:
                 try:
                     await message.author.timeout(timedelta(minutes=10), reason="Anti-Spam: Message flooding")
                     await self.bot.log_action(message.guild, "🛡️ Auto-Timeout: Spam", f"{message.author.mention} was automatically timed out for 10 minutes (Message Flood).", color=0xffa500, user=message.author)
                     await message.channel.send(f"🚫 {message.author.mention} has been timed out for 10 minutes for spamming.", delete_after=10)
                     # Purge recent messages from this user
-                    def is_author(m): return m.author.id == uid
+                    def is_author(m): return m.author.id == message.author.id
                     await message.channel.purge(limit=10, check=is_author)
                 except: pass
                 return
@@ -186,14 +187,15 @@ class Security(commands.Cog):
             return
 
         now = time.time()
-        self.nuke_track[user.id][action_type].append(now)
+        gid = guild.id
+        self.nuke_track[gid][user.id][action_type].append(now)
         # 60s window
-        self.nuke_track[user.id][action_type] = [t for t in self.nuke_track[user.id][action_type] if now - t < 60]
+        self.nuke_track[gid][user.id][action_type] = [t for t in self.nuke_track[gid][user.id][action_type] if now - t < 60]
         
         threshold = 3
         if action_type in ["ban", "kick"]: threshold = 5
         
-        if len(self.nuke_track[user.id][action_type]) >= threshold:
+        if len(self.nuke_track[gid][user.id][action_type]) >= threshold:
             logging.warning(f"🚨 NUKE ATTEMPT DETECTED! User: {user.name} Action: {action_type}")
             try:
                 # Remove all dangerous roles from the user
@@ -323,7 +325,7 @@ class Security(commands.Cog):
         embed.add_field(name="Anti-Raid (Join Rate)", value="✅ 10 joins / 30s", inline=True)
         embed.add_field(name="Anti-Spam", value="✅ 5 msgs / 5s", inline=True)
         embed.add_field(name="Anti-Nuke", value="✅ Enabled", inline=True)
-        embed.add_field(name="Raid Mode", value="🔴 Active" if self.raid_mode else "🟢 Inactive", inline=True)
+        embed.add_field(name="Raid Mode", value="🔴 Active" if self.raid_modes[ctx.guild.id] else "🟢 Inactive", inline=True)
         await ctx.send(embed=embed)
 
     @security_group.command(name="raidmode", description="Toggle Raid Mode manually")
@@ -331,10 +333,10 @@ class Security(commands.Cog):
     @app_commands.describe(status="Enable (True) or Disable (False) Raid Mode")
     async def raidmode(self, ctx, status: bool):
         await ctx.defer()
-        self.raid_mode = status
+        self.raid_modes[ctx.guild.id] = status
         state = "enabled" if status else "disabled"
-        await ctx.send(f"✅ Raid Mode has been **{state}**.")
-        logging.info(f"Raid Mode manually {state} by {ctx.author}")
+        await ctx.send(f"✅ Raid Mode has been **{state}** for this server.")
+        logging.info(f"Raid Mode manually {state} in {ctx.guild.name} by {ctx.author}")
 
 async def setup(bot):
     await bot.add_cog(Security(bot))

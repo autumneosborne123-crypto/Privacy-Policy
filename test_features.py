@@ -49,6 +49,7 @@ class TestBotFeatures(unittest.IsolatedAsyncioTestCase):
         self.security_cog = Security(self.bot)
 
     async def asyncTearDown(self):
+        await self.bot.db.close()
         pass
 
     # --- Moderation Tests ---

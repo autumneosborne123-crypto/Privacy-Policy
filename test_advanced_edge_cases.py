@@ -118,6 +118,7 @@ class TestAdvancedEdgeCases(unittest.IsolatedAsyncioTestCase):
         self.ctx.interaction = None
 
     async def asyncTearDown(self):
+        await self.db.close()
         if os.path.exists(self.db_path):
             os.remove(self.db_path)
 
@@ -220,9 +221,9 @@ class TestAdvancedEdgeCases(unittest.IsolatedAsyncioTestCase):
     # --- Security & Leveling ---
 
     async def test_security_raidmode_toggle(self):
-        self.sec_cog.raid_mode = False
+        self.sec_cog.raid_modes[self.guild.id] = False
         await self.sec_cog.raidmode.callback(self.sec_cog, self.ctx, True)
-        self.assertTrue(self.sec_cog.raid_mode)
+        self.assertTrue(self.sec_cog.raid_modes[self.guild.id])
         self.ctx.send.assert_called()
         args, _ = self.ctx.send.call_args
         self.assertIn("enabled", args[0])

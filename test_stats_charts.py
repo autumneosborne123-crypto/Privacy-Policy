@@ -24,6 +24,7 @@ class TestStatsCharts(unittest.IsolatedAsyncioTestCase):
         self.security_cog = Security(self.bot)
 
     async def asyncTearDown(self):
+        await self.db.close()
         if os.path.exists(self.db_file):
             os.remove(self.db_file)
 

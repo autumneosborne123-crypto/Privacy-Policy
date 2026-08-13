@@ -95,6 +95,7 @@ class TestModerationEdgeCases(unittest.IsolatedAsyncioTestCase):
         self.ctx.interaction = None
 
     async def asyncTearDown(self):
+        await self.db.close()
         if os.path.exists(self.db_path):
             os.remove(self.db_path)
 

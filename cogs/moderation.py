@@ -460,6 +460,7 @@ class Moderation(commands.Cog):
     ])
     async def top_mute(self, ctx, member: discord.Member, minutes: str = None, *, reason: str = "No reason provided"):
         """Super easy shortcut to mute a member."""
+        await ctx.defer()
         await self.mute.callback(self, ctx, member, minutes, reason=reason)
 
     @commands.hybrid_command(name="timeout", description="Timeout a member (top-level shortcut)")
@@ -472,42 +473,49 @@ class Moderation(commands.Cog):
     ])
     async def top_timeout(self, ctx, member: discord.Member, minutes: str, *, reason: str = "No reason provided"):
         """Super easy shortcut to timeout a member."""
+        await ctx.defer()
         await self.timeout.callback(self, ctx, member, minutes, reason=reason)
 
     @commands.hybrid_command(name="unmute", description="Unmute a member (top-level shortcut)")
     @is_staff()
     async def top_unmute(self, ctx, member: discord.Member, *, reason: str = "Unmuted by moderator"):
         """Super easy shortcut to unmute a member."""
+        await ctx.defer()
         await self.unmute.callback(self, ctx, member, reason=reason)
 
     @commands.hybrid_command(name="ban", description="Ban a member (top-level shortcut)")
     @is_senior_staff()
     async def top_ban(self, ctx, user: typing.Union[discord.Member, discord.User], *, reason: str = "No reason provided"):
         """Super easy shortcut to ban a member."""
+        await ctx.defer()
         await self.ban.callback(self, ctx, user, reason=reason)
 
     @commands.hybrid_command(name="kick", description="Kick a member (top-level shortcut)")
     @is_staff()
     async def top_kick(self, ctx, member: discord.Member, *, reason: str = "No reason provided"):
         """Super easy shortcut to kick a member."""
+        await ctx.defer()
         await self.kick.callback(self, ctx, member, reason=reason)
 
     @commands.hybrid_command(name="unban", description="Unban a member (top-level shortcut)")
     @is_senior_staff()
     async def top_unban(self, ctx, user: discord.User, *, reason: str = "No reason provided"):
         """Super easy shortcut to unban a member."""
+        await ctx.defer()
         await self.unban.callback(self, ctx, user, reason=reason)
 
     @commands.hybrid_command(name="warn", description="Warn a member (top-level shortcut)")
     @is_staff()
     async def top_warn(self, ctx, member: discord.Member, *, reason: str = "No reason provided"):
         """Super easy shortcut to warn a member."""
+        await ctx.defer()
         await self.warn.callback(self, ctx, member, reason=reason)
 
     @commands.hybrid_command(name="delwarn", description="Delete a warning (top-level shortcut)", aliases=["removewarn", "unwarn"])
     @is_senior_staff()
     async def top_delwarn(self, ctx, warn_id: int):
         """Super easy shortcut to delete a warning."""
+        await ctx.defer()
         await self.removewarn.callback(self, ctx, warn_id)
 
 async def setup(bot):

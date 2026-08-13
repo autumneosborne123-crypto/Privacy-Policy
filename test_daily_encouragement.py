@@ -36,6 +36,7 @@ class TestDailyEncouragement(unittest.IsolatedAsyncioTestCase):
             self.fun_cog = Fun(self.bot)
 
     async def asyncTearDown(self):
+        await self.db.close()
         if os.path.exists(self.db_file):
             os.remove(self.db_file)
         if os.path.exists(self.config_file):

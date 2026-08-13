@@ -24,18 +24,21 @@ class DiscordLogHandler(logging.Handler):
     def __init__(self, bot):
         super().__init__()
         self.bot = bot
+        self.pending_logs = 0
+        self._lock = asyncio.Lock() # Note: this is for the event loop, not threads
 
     def emit(self, record):
-        if not self.bot.is_ready():
+        if not self.bot.is_ready() or self.pending_logs >= 3:
             return
 
-        # Skip spammy or rate-limit logs to avoid recursion
+        # Skip spammy, technical or rate-limit logs to avoid recursion and event loop clog
         msg = record.getMessage()
         skip_terms = [
             "Scraped", "search queries", "Successfully scraped", "rate limited", 
             "429 Too Many Requests", "You are being blocked", "rate-limits",
             "Unknown interaction", "NotFound: 404 Not Found",
-            "Failed to send log to channel"
+            "Failed to send log to channel", "Executing <Task", "Task took", 
+            "asyncio", "Heartbeat", "Shard ID"
         ]
         if any(term in msg for term in skip_terms):
             return
@@ -45,58 +48,54 @@ class DiscordLogHandler(logging.Handler):
             return
 
         log_entry = self.format(record)
+        self.pending_logs += 1
         asyncio.run_coroutine_threadsafe(self.send_to_discord(log_entry, record.levelno), self.bot.loop)
 
     async def send_to_discord(self, message, level):
-        color = 0x2b2d31
-        if level >= logging.CRITICAL:
-            color = 0xff0000
-        elif level >= logging.ERROR:
-            color = 0xff4b4b
-        elif level >= logging.WARNING:
-            color = 0xffa500
+        try:
+            color = 0x2b2d31
+            if level >= logging.CRITICAL:
+                color = 0xff0000
+            elif level >= logging.ERROR:
+                color = 0xff4b4b
+            elif level >= logging.WARNING:
+                color = 0xffa500
+                
+            log_channels = []
             
-        log_channels = []
-        
-        # 1. Collect per-guild log channels
-        for guild in self.bot.guilds:
-            channel = await self.bot.get_log_channel(guild)
-            if channel and channel not in log_channels:
-                log_channels.append(channel)
-        
-        # 2. Add master log channel from config
-        master_log_id = self.bot.config.get("master_log_channel_id")
-        if master_log_id:
-            master_channel = self.bot.get_channel(int(master_log_id))
-            if not master_channel:
-                try:
-                    master_channel = await self.bot.fetch_channel(int(master_log_id))
-                except:
-                    pass
-            if master_channel and master_channel not in log_channels:
-                # Permission check for master channel
-                try:
-                    permissions = master_channel.permissions_for(master_channel.guild.me)
-                    if permissions.view_channel and permissions.send_messages and permissions.embed_links:
-                        log_channels.append(master_channel)
-                except:
-                    pass
+            # 1. Add master log channel from config (Priority for technical logs)
+            master_log_id = self.bot.config.get("master_log_channel_id")
+            if master_log_id:
+                master_channel = self.bot.get_channel(int(master_log_id))
+                if not master_channel:
+                    try: master_channel = await self.bot.fetch_channel(int(master_log_id))
+                    except: pass
+                if master_channel:
+                    try:
+                        permissions = master_channel.permissions_for(master_channel.guild.me)
+                        if permissions.view_channel and permissions.send_messages and permissions.embed_links:
+                            log_channels.append(master_channel)
+                    except: pass
+            
+            # 2. Add per-guild log channels (Limit to first 3 to avoid extreme rate limits on technical logs)
+            count = 0
+            for guild in self.bot.guilds:
+                if count >= 3: break
+                channel = await self.bot.get_log_channel(guild)
+                if channel and channel not in log_channels:
+                    log_channels.append(channel)
+                    count += 1
+            
+            if not log_channels:
+                return
 
-        if not log_channels:
-            return
+            embed = discord.Embed(title="🤖 Bot Technical Log", description=f"```\n{message[:1900]}\n```", color=color, timestamp=discord.utils.utcnow())
 
-        embed = discord.Embed(title="🤖 Bot Technical Log", description=f"```\n{message[:1900]}\n```", color=color, timestamp=discord.utils.utcnow())
-
-        for channel in log_channels:
-            # Permission check for technical logs
-            permissions = channel.permissions_for(channel.guild.me)
-            if not (permissions.view_channel and permissions.send_messages and permissions.embed_links):
-                continue
-                    
-            try:
-                await channel.send(embed=embed)
-            except:
-                pass
+            for channel in log_channels:
+                try: await channel.send(embed=embed)
+                except: pass
+        finally:
+            self.pending_logs = max(0, self.pending_logs - 1)
 
 class HelpSelect(discord.ui.Select):
     def __init__(self, bot, prefix):
@@ -141,6 +140,9 @@ class HelpSelect(discord.ui.Select):
             return await interaction.response.edit_message(embed=embed, view=self.view)
             
         cog = self.bot.get_cog(self.values[0])
+        if not cog:
+            return await interaction.response.send_message(f"❌ The `{self.values[0]}` category is currently unavailable.", ephemeral=True)
+            
         embed = discord.Embed(title=f"{self.values[0]} Commands", color=0x2b2d31)
         
         # Use KDoc/description if available for the cog
@@ -229,6 +231,10 @@ class FlowerBot(commands.Bot):
             except: pass
             return False
         return True
+
+    async def close(self):
+        await self.db.close()
+        await super().close()
 
     async def setup_hook(self):
         await self.db.init()

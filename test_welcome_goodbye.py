@@ -24,6 +24,7 @@ class TestWelcomeGoodbye(unittest.IsolatedAsyncioTestCase):
         self.config_cog = ConfigCog(self.bot)
 
     async def asyncTearDown(self):
+        await self.bot.db.close()
         if os.path.exists(self.config_file):
             os.remove(self.config_file)
 

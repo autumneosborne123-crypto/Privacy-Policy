@@ -124,10 +124,14 @@ class TestPremiumFeatures(unittest.IsolatedAsyncioTestCase):
         mock_source = MagicMock(spec=discord.AudioSource)
         mock_source.is_opus.return_value = False
         
-        with patch('discord.FFmpegPCMAudio', return_value=mock_source) as mock_ffmpeg:
-            await YTDLSource.from_url(None, data=data, stream=True, audio_filter='bassboost')
-            args, kwargs = mock_ffmpeg.call_args
-            self.assertIn('aresample=async=1,bass=g=20,dynaudnorm=f=200', kwargs.get('options', ''))
+        with patch('yt_dlp.YoutubeDL') as mock_ytdl:
+            mock_ydl_instance = mock_ytdl.return_value.__enter__.return_value
+            mock_ydl_instance.extract_info.return_value = data
+            
+            with patch('discord.FFmpegPCMAudio', return_value=mock_source) as mock_ffmpeg:
+                await YTDLSource.from_url('http://example.com/stream.mp3', stream=True, audio_filter='bassboost')
+                args, kwargs = mock_ffmpeg.call_args
+                self.assertIn('aresample=async=1,bass=g=20,dynaudnorm=f=200', kwargs.get('options', ''))
 
     async def test_play_next_passes_filter(self):
         mock_ctx = AsyncMock()

@@ -26,6 +26,7 @@ class TestTradingSystem(unittest.IsolatedAsyncioTestCase):
         return await self.db.get_balance(user_id)
 
     async def asyncTearDown(self):
+        await self.db.close()
         if os.path.exists(self.db_path):
             os.remove(self.db_path)
 

@@ -35,6 +35,7 @@ class TestLevelingConfig(unittest.IsolatedAsyncioTestCase):
         self.config_cog = ConfigCog(self.bot)
 
     async def asyncTearDown(self):
+        await self.db.close()
         self.leveling_cog.cog_unload()
         if os.path.exists(self.db_file):
             os.remove(self.db_file)

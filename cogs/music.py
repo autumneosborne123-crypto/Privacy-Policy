@@ -30,7 +30,7 @@ YTDL_OPTIONS = {
     'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     'extractor_args': {
         'youtube': {
-            'player_client': ['ios', 'android', 'mweb'],
+            'player_client': ['web_creator', 'ios', 'android', 'mweb'],
         }
     }
 }
@@ -73,23 +73,21 @@ class YTDLSource(discord.PCMVolumeTransformer):
         if audio_filter == 'nightcore': tempo = 1.25
         elif audio_filter == 'vaporwave': tempo = 0.8
         
-        # Re-extract if data is missing or incomplete (e.g., from flat extraction)
-        if data is None or 'formats' not in data:
-            target_url = url or (data.get('url') if data else None) or (data.get('webpage_url') if data else None)
-            if not target_url:
-                raise ValueError("No URL or data provided for extraction")
+        # Always re-extract for streaming to ensure fresh URLs, especially for YouTube
+        target_url = url or (data.get('webpage_url') if data else None) or (data.get('url') if data else None)
+        if not target_url:
+            raise ValueError("No URL or data provided for extraction")
 
-            if not target_url.startswith(('http://', 'https://')):
-                target_url = f"ytsearch:{target_url}"
+        if not target_url.startswith(('http://', 'https://')):
+            target_url = f"ytsearch:{target_url}"
+            
+        def extract():
+            with yt_dlp.YoutubeDL(YTDL_OPTIONS) as ydl:
+                return ydl.extract_info(target_url, download=not stream)
                 
-            def extract():
-                with yt_dlp.YoutubeDL(YTDL_OPTIONS) as ydl:
-                    info = ydl.extract_info(target_url, download=not stream)
-                    if 'entries' in info:
-                        info = info['entries'][0]
-                    return info
-                    
-            data = await loop.run_in_executor(None, extract)
+        data = await loop.run_in_executor(None, extract)
+        if 'entries' in data and data['entries']:
+            data = data['entries'][0]
         
         # Check for 'fake' data (Sign in pages, etc)
         title = data.get('title', 'Unknown')
@@ -125,6 +123,7 @@ class Music(commands.Cog):
         self.default_lyrics_offset = -0.4 # 400ms lead for better sync with Discord message lag
         self.active_filters = {}
         self.autoplay_history = {}
+        self.consecutive_errors = {}
         self.genius = lyricsgenius.Genius(os.getenv('GENIUS_TOKEN', "Your_Genius_API_Token_Here"))
         self.genius.verbose = False
         self.genius.remove_section_headers = True
@@ -292,8 +291,11 @@ class Music(commands.Cog):
 
         try:
             audio_filter = self.active_filters.get(guild_id)
-            player = await YTDLSource.from_url(None, data=data, stream=True, audio_filter=audio_filter)
-                
+            # Pass webpage_url to ensure fresh extraction
+            source_url = data.get('webpage_url') or data.get('url')
+            player = await YTDLSource.from_url(source_url, stream=True, audio_filter=audio_filter)
+            
+            self.current_tracks[guild_id] = data
             player.volume = self.volumes.get(guild_id, 0.5)
             
             def after_playing(error):
@@ -304,6 +306,7 @@ class Music(commands.Cog):
             ctx.voice_client.play(player, after=after_playing)
             self.start_times[guild_id] = time.time()
             self.total_paused_durations[guild_id] = 0
+            self.consecutive_errors[guild_id] = 0 # Reset counter on successful play start
             await ctx.send(f"🎶 **Now playing:** {data['title']}")
             
             # Autolyrics check
@@ -319,6 +322,16 @@ class Music(commands.Cog):
                 self.bot.loop.call_later(2, lambda: self.bot.loop.create_task(self._internal_lyrics_start(ctx)))
         except Exception as e:
             logging.error(f"Music error in {ctx.guild.name}: {e}")
+            
+            # Prevent infinite error loops
+            current_errors = self.consecutive_errors.get(guild_id, 0) + 1
+            self.consecutive_errors[guild_id] = current_errors
+            
+            if current_errors >= 3:
+                await ctx.send("❌ Too many consecutive music errors. Stopping playback to prevent loop.")
+                self.consecutive_errors[guild_id] = 0
+                return
+
             await ctx.send(f"❌ Error playing song: {e}")
             await asyncio.sleep(3)
             await self.play_next(ctx)

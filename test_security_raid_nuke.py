@@ -37,14 +37,17 @@ class TestSecurityRaidNuke(unittest.IsolatedAsyncioTestCase):
             member.avatar = MagicMock()
             await self.security_cog.on_member_join(member)
         
-        self.assertTrue(self.security_cog.raid_mode)
+        self.assertTrue(self.security_cog.raid_modes[guild.id])
         # Check if notification was sent
         guild.system_channel.send.assert_called()
         self.assertIn("RAID DETECTED", guild.system_channel.send.call_args[0][0])
 
     async def test_raid_mode_auto_kick(self):
-        self.security_cog.raid_mode = True
+        guild = MagicMock(spec=discord.Guild)
+        guild.id = 777
+        self.security_cog.raid_modes[guild.id] = True
         member = AsyncMock(spec=discord.Member)
+        member.guild = guild
         member.id = 2000
         member.bot = False
         member.name = "RaidUser"
@@ -63,6 +66,8 @@ class TestSecurityRaidNuke(unittest.IsolatedAsyncioTestCase):
         message.content = "spam"
         message.mentions = []
         message.channel = AsyncMock()
+        message.guild = MagicMock(spec=discord.Guild)
+        message.guild.id = 123
         
         # 5 messages in 5 seconds
         for i in range(5):
@@ -81,6 +86,8 @@ class TestSecurityRaidNuke(unittest.IsolatedAsyncioTestCase):
         message.content = "hey " + " ".join([f"<@{i}>" for i in range(6)])
         message.mentions = [MagicMock() for _ in range(6)]
         message.channel = AsyncMock()
+        message.guild = MagicMock(spec=discord.Guild)
+        message.guild.id = 456
         
         await self.security_cog.on_message(message)
         
@@ -124,13 +131,15 @@ class TestSecurityRaidNuke(unittest.IsolatedAsyncioTestCase):
 
     async def test_raidmode_command(self):
         ctx = AsyncMock()
+        ctx.guild.id = 888
+        ctx.guild.name = "Test Guild"
         await self.security_cog.raidmode.callback(self.security_cog, ctx, True)
-        self.assertTrue(self.security_cog.raid_mode)
-        ctx.send.assert_called_with("✅ Raid Mode has been **enabled**.")
+        self.assertTrue(self.security_cog.raid_modes[ctx.guild.id])
+        ctx.send.assert_called_with("✅ Raid Mode has been **enabled** for this server.")
         
         await self.security_cog.raidmode.callback(self.security_cog, ctx, False)
-        self.assertFalse(self.security_cog.raid_mode)
-        ctx.send.assert_called_with("✅ Raid Mode has been **disabled**.")
+        self.assertFalse(self.security_cog.raid_modes[ctx.guild.id])
+        ctx.send.assert_called_with("✅ Raid Mode has been **disabled** for this server.")
 
 if __name__ == '__main__':
     unittest.main()

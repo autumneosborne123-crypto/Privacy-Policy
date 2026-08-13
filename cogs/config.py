@@ -24,6 +24,7 @@ class ConfigCog(commands.Cog, name="Config"):
     @is_admin()
     @app_commands.describe(channel="The channel for welcome messages", message="The message template (use {member} and {guild})", reset="Reset welcome settings")
     async def welcome(self, ctx, channel: discord.TextChannel = None, message: str = None, reset: bool = False):
+        await ctx.defer(ephemeral=True)
         if reset:
             await self.bot.db.set_guild_setting(ctx.guild.id, "welcome_channel_id", None)
             await self.bot.db.set_guild_setting(ctx.guild.id, "welcome_message", None)
@@ -40,6 +41,7 @@ class ConfigCog(commands.Cog, name="Config"):
     @is_admin()
     @app_commands.describe(channel="The channel for goodbye messages", message="The message template (use {member} and {guild})", reset="Reset goodbye settings")
     async def goodbye(self, ctx, channel: discord.TextChannel = None, message: str = None, reset: bool = False):
+        await ctx.defer(ephemeral=True)
         if reset:
             await self.bot.db.set_guild_setting(ctx.guild.id, "goodbye_channel_id", None)
             await self.bot.db.set_guild_setting(ctx.guild.id, "goodbye_message", None)
@@ -55,6 +57,7 @@ class ConfigCog(commands.Cog, name="Config"):
     @config_group.command(name="quotes", description="Configure inspirational quote feed")
     @is_admin()
     async def quotes(self, ctx, channel: discord.TextChannel = None):
+        await ctx.defer(ephemeral=True)
         if channel:
             await self.bot.db.set_quote_feed(ctx.guild.id, channel.id)
             await ctx.send(f"✅ Inspirational quotes will now be sent to {channel.mention} every 2.5 hours.", ephemeral=True)
@@ -65,6 +68,7 @@ class ConfigCog(commands.Cog, name="Config"):
     @config_group.command(name="leveling", description="Configure leveling system")
     @is_admin()
     async def leveling(self, ctx, notify_channel: discord.TextChannel = None, restrict_channel: discord.TextChannel = None, reset_notify: bool = False, reset_restrict: bool = False):
+        await ctx.defer(ephemeral=True)
         if reset_notify:
             await self.bot.db.set_guild_setting(ctx.guild.id, "level_up_channel_id", None)
         elif notify_channel:
@@ -184,6 +188,7 @@ class ConfigCog(commands.Cog, name="Config"):
     @config_group.command(name="music", description="Configure music channel")
     @is_admin()
     async def music(self, ctx, channel: discord.TextChannel = None):
+        await ctx.defer(ephemeral=True)
         await self.bot.db.set_guild_setting(ctx.guild.id, "music_channel_id", str(channel.id) if channel else None)
         status = f"restricted to {channel.mention}" if channel else "allowed in any channel"
         await ctx.send(f"✅ Music commands are now {status}!", ephemeral=True)
@@ -191,6 +196,7 @@ class ConfigCog(commands.Cog, name="Config"):
     @config_group.command(name="log", description="Configure bot audit logs")
     @is_admin()
     async def log(self, ctx, channel: discord.TextChannel = None, toggle_category: str = None, enabled: bool = True):
+        await ctx.defer(ephemeral=True)
         if channel:
             permissions = channel.permissions_for(ctx.guild.me)
             if not (permissions.view_channel and permissions.send_messages and permissions.embed_links):
@@ -206,6 +212,7 @@ class ConfigCog(commands.Cog, name="Config"):
     @config_group.command(name="mute_role", description="Set the mute role")
     @is_admin()
     async def mute_role(self, ctx, role: discord.Role = None):
+        await ctx.defer(ephemeral=True)
         await self.bot.db.set_mute_role(ctx.guild.id, role.id if role else None)
         status = f"set to {role.mention}" if role else "removed"
         await ctx.send(f"✅ Mute role {status}.", ephemeral=True)
@@ -213,6 +220,7 @@ class ConfigCog(commands.Cog, name="Config"):
     @config_group.command(name="embeds", description="Configure embed channel")
     @is_admin()
     async def embeds(self, ctx, channel: discord.TextChannel = None):
+        await ctx.defer(ephemeral=True)
         await self.bot.db.set_guild_setting(ctx.guild.id, "embed_channel_id", str(channel.id) if channel else None)
         status = f"restricted to {channel.mention}" if channel else "allowed in any channel"
         await ctx.send(f"✅ Embed commands are now {status}!", ephemeral=True)
@@ -220,6 +228,7 @@ class ConfigCog(commands.Cog, name="Config"):
     @config_group.command(name="roles", description="Configure roles channel")
     @is_admin()
     async def roles(self, ctx, channel: discord.TextChannel = None):
+        await ctx.defer(ephemeral=True)
         await self.bot.db.set_guild_setting(ctx.guild.id, "roles_channel_id", str(channel.id) if channel else None)
         status = f"restricted to {channel.mention}" if channel else "allowed in any channel"
         await ctx.send(f"✅ Role commands are now {status}!", ephemeral=True)
@@ -227,6 +236,7 @@ class ConfigCog(commands.Cog, name="Config"):
     @config_group.command(name="toggle", description="Enable or disable a module or log category")
     @is_admin()
     async def toggle(self, ctx, module: str = None, log_category: str = None, enabled: bool = True):
+        await ctx.defer(ephemeral=True)
         await self._do_toggle(ctx, module, log_category, enabled)
 
     async def _do_toggle(self, ctx, module: str = None, log_category: str = None, enabled: bool = True):
