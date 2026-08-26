@@ -317,12 +317,18 @@ class FlowerBot(commands.Bot):
     async def get_prefix(self, message):
         """Return the configured prefix for a guild, or the default prefix."""
         if not message.guild:
-            return commands.when_mentioned_or(self.DEFAULT_PREFIX)(self, message)
+            return commands.when_mentioned_or(*self.SUPPORTED_PREFIXES)(self, message)
 
         prefix = await self.db.get_guild_setting(message.guild.id, "command_prefix")
         if prefix not in self.SUPPORTED_PREFIXES:
-            prefix = self.DEFAULT_PREFIX
+            return commands.when_mentioned_or(*self.SUPPORTED_PREFIXES)(self, message)
         return commands.when_mentioned_or(prefix)(self, message)
+
+    async def on_message(self, message):
+        """Dispatch prefix commands after message listeners have received the event."""
+        if message.author.bot:
+            return
+        await self.process_commands(message)
 
     def get_admin_invite_url(self):
         """Return an OAuth2 URL that installs the bot with Administrator access."""

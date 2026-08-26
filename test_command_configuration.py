@@ -1,5 +1,6 @@
 import asyncio
 import os
+import unittest
 from urllib.parse import parse_qs, urlparse
 
 import discord
@@ -37,6 +38,40 @@ async def test_prefix_response_does_not_use_ephemeral():
     await send_context_message(ctx, "error", ephemeral=True)
 
     ctx.send.assert_awaited_once_with("error")
+
+
+class TestCommandDispatch(unittest.IsolatedAsyncioTestCase):
+    async def test_unconfigured_guild_accepts_supported_prefixes(self):
+        bot = FlowerBot()
+        bot._connection.user = MagicMock(id=999)
+        bot.db.get_guild_setting = AsyncMock(return_value=None)
+        message = MagicMock()
+        message.guild = MagicMock(id=123)
+        message.content = "!help"
+
+        prefixes = await bot.get_prefix(message)
+
+        self.assertTrue(all(prefix in prefixes for prefix in bot.SUPPORTED_PREFIXES))
+
+    async def test_on_message_processes_non_bot_messages(self):
+        bot = FlowerBot()
+        bot.process_commands = AsyncMock()
+        message = MagicMock()
+        message.author.bot = False
+
+        await bot.on_message(message)
+
+        bot.process_commands.assert_awaited_once_with(message)
+
+    async def test_on_message_ignores_bot_messages(self):
+        bot = FlowerBot()
+        bot.process_commands = AsyncMock()
+        message = MagicMock()
+        message.author.bot = True
+
+        await bot.on_message(message)
+
+        bot.process_commands.assert_not_awaited()
 
 
 async def test_interaction_response_remains_ephemeral():
