@@ -52,9 +52,19 @@ class MockCtx:
         self.guild = guild
         self.sent_messages = []
         self.interaction = None
+        self.deferred = False
 
-    async def send(self, content, ephemeral=False, delete_after=None):
-        self.sent_messages.append(content)
+    async def send(self, content, ephemeral=False, delete_after=None, embed=None):
+        if embed:
+            self.sent_messages.append(embed.description or embed.title)
+        else:
+            self.sent_messages.append(content)
+        return True
+
+    async def defer(self, ephemeral=False):
+        if self.deferred:
+            raise Exception("InteractionResponded: Already deferred")
+        self.deferred = True
         return True
 
 async def test_moderation_mute():
@@ -91,6 +101,7 @@ async def test_moderation_mute():
     await db.set_mute_role(guild.id, mute_role.id)
     
     ctx.sent_messages = []
+    ctx.deferred = False
     target.roles = []
     target.timeout_until = None
     target.timed_out_until = None
@@ -103,6 +114,7 @@ async def test_moderation_mute():
     
     print("\n--- Test: Mute (Both) ---")
     ctx.sent_messages = []
+    ctx.deferred = False
     target.roles = []
     target.timeout_until = None
     target.timed_out_until = None
@@ -115,6 +127,7 @@ async def test_moderation_mute():
     
     print("\n--- Test: Unmute (Both) ---")
     ctx.sent_messages = []
+    ctx.deferred = False
     await cog.unmute.callback(cog, ctx, target, reason="Good behavior")
     assert target.timeout_until is None
     assert mute_role not in target.roles
@@ -124,6 +137,7 @@ async def test_moderation_mute():
     
     print("\n--- Test: Mute (1d duration) ---")
     ctx.sent_messages = []
+    ctx.deferred = False
     target.roles = []
     target.timeout_until = None
     target.timed_out_until = None

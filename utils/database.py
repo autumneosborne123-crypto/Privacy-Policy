@@ -1,4 +1,5 @@
 import aiosqlite
+import asyncio
 import os
 import json
 import logging
@@ -9,10 +10,20 @@ class Database:
         self.db_path = db_path
         self.settings_cache = {}
         self.conn = None
+        self._connection_lock = asyncio.Lock()
+        self._write_lock = asyncio.Lock()
 
     async def get_conn(self):
         if self.conn is None:
-            self.conn = await aiosqlite.connect(self.db_path)
+            async with self._connection_lock:
+                if self.conn is None:
+                    self.conn = await aiosqlite.connect(self.db_path, timeout=30)
+                    # The bot and dashboard may write to the database concurrently.
+                    # WAL allows readers to continue while a writer is active, and the
+                    # busy timeout lets short-lived writer contention resolve cleanly.
+                    await self.conn.execute("PRAGMA journal_mode=WAL")
+                    await self.conn.execute("PRAGMA synchronous=NORMAL")
+                    await self.conn.execute("PRAGMA busy_timeout=30000")
         return self.conn
 
     async def close(self):
@@ -76,6 +87,9 @@ class Database:
                           premium_until REAL DEFAULT 0)''')
         await db.execute('''CREATE TABLE IF NOT EXISTS reaction_roles
                          (guild_id TEXT, message_id TEXT, emoji TEXT, role_id TEXT, PRIMARY KEY (guild_id, message_id, emoji))''')
+        
+        await db.execute('''CREATE TABLE IF NOT EXISTS mute_roles
+                         (guild_id TEXT PRIMARY KEY, role_id TEXT)''')
         
         # Migration for user_daily_messages to activity if needed
         has_old_table = False
@@ -145,7 +159,8 @@ class Database:
             'premium_247': 'BOOLEAN DEFAULT 0',
             'autolyrics': 'BOOLEAN DEFAULT 0',
             'staff_role_id': 'TEXT',
-            'admin_role_id': 'TEXT'
+            'admin_role_id': 'TEXT',
+            'command_prefix': 'TEXT'
         }
         for col, col_type in new_cols.items():
             if col not in gs_columns:
@@ -361,10 +376,19 @@ class Database:
         await db.execute("INSERT OR IGNORE INTO sent_media (url) VALUES (?)", (url,))
         await db.commit()
 
+    async def claim_media_url(self, url):
+        """Atomically reserve a media URL and report whether this caller won."""
+        async with self._write_lock:
+            db = await self.get_conn()
+            cursor = await db.execute("INSERT OR IGNORE INTO sent_media (url) VALUES (?)", (url,))
+            await db.commit()
+            return cursor.rowcount == 1
+
     async def cleanup_sent_media(self, days=7):
-        db = await self.get_conn()
-        await db.execute("DELETE FROM sent_media WHERE timestamp < datetime('now', '-' || ? || ' days')", (days,))
-        await db.commit()
+        async with self._write_lock:
+            db = await self.get_conn()
+            await db.execute("DELETE FROM sent_media WHERE timestamp < datetime('now', '-' || ? || ' days')", (days,))
+            await db.commit()
 
     async def set_quote_feed(self, guild_id, channel_id):
         db = await self.get_conn()

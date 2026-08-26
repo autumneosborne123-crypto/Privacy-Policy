@@ -86,8 +86,12 @@ class YTDLSource(discord.PCMVolumeTransformer):
                 return ydl.extract_info(target_url, download=not stream)
                 
         data = await loop.run_in_executor(None, extract)
+        if not data:
+            raise ValueError("No results found for that song")
         if 'entries' in data and data['entries']:
             data = data['entries'][0]
+        if not data or not data.get('url'):
+            raise ValueError("The selected result has no playable audio stream")
         
         # Check for 'fake' data (Sign in pages, etc)
         title = data.get('title', 'Unknown')
@@ -128,6 +132,12 @@ class Music(commands.Cog):
         self.genius.verbose = False
         self.genius.remove_section_headers = True
 
+    async def send_notice(self, ctx, message):
+        """Send an ephemeral interaction response or a normal prefix response."""
+        if ctx.interaction:
+            return await ctx.send(message, ephemeral=True)
+        return await ctx.send(message)
+
     def is_dj():
         async def predicate(ctx):
             if ctx.author.guild_permissions.administrator:
@@ -140,7 +150,10 @@ class Music(commands.Cog):
             if dj_role is None:
                 return True
                 
-            await ctx.send("❌ This command is restricted to DJs.", ephemeral=True)
+            if ctx.interaction:
+                await ctx.send("❌ This command is restricted to DJs.", ephemeral=True)
+            else:
+                await ctx.send("❌ This command is restricted to DJs.")
             return False
         return commands.check(predicate)
 
@@ -162,7 +175,10 @@ class Music(commands.Cog):
             else:
                 msg += " (#music)"
             
-            await ctx.send(msg, ephemeral=True)
+            if ctx.interaction:
+                await ctx.send(msg, ephemeral=True)
+            else:
+                await ctx.send(msg)
             return False
         return commands.check(predicate)
 
@@ -342,7 +358,7 @@ class Music(commands.Cog):
 
     async def music_play_logic(self, ctx, query: str):
         if not shutil.which("ffmpeg"):
-            return await ctx.send("❌ FFmpeg is not installed on this server.", ephemeral=True)
+            return await self.send_notice(ctx, "❌ FFmpeg is not installed on this server.")
         if not ctx.author.voice:
             return await ctx.send("❌ You must be in a voice channel!")
         
@@ -366,10 +382,14 @@ class Music(commands.Cog):
                         return ydl.extract_info(search_query, download=False)
                 
                 data = await self.bot.loop.run_in_executor(None, extract)
-                if 'entries' in data and data['entries']: 
+                if not data:
+                    return await ctx.send("❌ No results found.")
+                if 'entries' in data and data['entries']:
                     data = data['entries'][0]
                 elif 'entries' in data:
                     return await ctx.send("❌ No results found.")
+                if not data or not data.get('webpage_url') and not data.get('url'):
+                    return await ctx.send("❌ The selected result cannot be played.")
                     
                 self.get_queue(ctx.guild.id).append(data)
                 
@@ -413,22 +433,28 @@ class Music(commands.Cog):
     @music.command(name="pause", description="Pause music")
     @is_dj()
     async def pause(self, ctx):
-        await ctx.defer()
+        if ctx.interaction:
+            await ctx.defer()
         if ctx.voice_client and ctx.voice_client.is_playing():
             ctx.voice_client.pause()
             self.pause_times[ctx.guild.id] = time.time()
             await ctx.send("⏸️ Paused.")
+        else:
+            await ctx.send("❌ Nothing is playing.")
 
     @music.command(name="resume", description="Resume music")
     @is_dj()
     async def resume(self, ctx):
-        await ctx.defer()
+        if ctx.interaction:
+            await ctx.defer()
         if ctx.voice_client and ctx.voice_client.is_paused():
             ctx.voice_client.resume()
             if ctx.guild.id in self.pause_times:
                 paused_for = time.time() - self.pause_times.pop(ctx.guild.id)
                 self.total_paused_durations[ctx.guild.id] = self.total_paused_durations.get(ctx.guild.id, 0) + paused_for
             await ctx.send("▶️ Resumed.")
+        else:
+            await ctx.send("❌ Nothing is paused.")
 
     @music.command(name="shuffle", description="Shuffle the queue")
     @is_dj()
@@ -689,14 +715,14 @@ class Music(commands.Cog):
                 ctx.voice_client.source.volume = level / 100
             await ctx.send(f"🔊 Volume set to **{level}%**")
         else:
-            await ctx.send("❌ Level must be 0-100.", ephemeral=True)
+            await self.send_notice(ctx, "❌ Level must be 0-100.")
 
     @music.command(name="247", description="Toggle 24/7 mode (Premium Server feature)")
     @is_dj()
     async def toggle_247(self, ctx):
         is_premium = await self.bot.db.is_guild_premium(ctx.guild.id)
         if not is_premium:
-            return await ctx.send(f"❌ **24/7 Mode** is a **Server Premium** feature ($5.00/mo)!", ephemeral=True)
+            return await self.send_notice(ctx, "❌ **24/7 Mode** is a **Server Premium** feature ($5.00/mo)!")
         
         current = await self.bot.db.get_guild_setting(ctx.guild.id, "premium_247")
         new_val = 0 if current else 1
@@ -710,7 +736,7 @@ class Music(commands.Cog):
     async def apply_filter(self, ctx, filter_name: str = None):
         is_premium = await self.bot.db.is_guild_premium(ctx.guild.id)
         if not is_premium:
-            return await ctx.send(f"❌ **Audio Filters** are a **Server Premium** feature ($5.00/mo)!", ephemeral=True)
+            return await self.send_notice(ctx, "❌ **Audio Filters** are a **Server Premium** feature ($5.00/mo)!")
 
         if not filter_name:
             available = ", ".join([f"`{f}`" for f in FILTERS.keys()])
@@ -736,7 +762,7 @@ class Music(commands.Cog):
     @music.command(name="playnext", description="Queue song to play next")
     @is_dj()
     async def playnext(self, ctx, *, query: str):
-        if not shutil.which("ffmpeg"): return await ctx.send("❌ No FFmpeg.", ephemeral=True)
+        if not shutil.which("ffmpeg"): return await self.send_notice(ctx, "❌ No FFmpeg.")
         if not ctx.author.voice: return await ctx.send("❌ Join a voice channel!")
         
         await ctx.defer()
@@ -769,7 +795,7 @@ class Music(commands.Cog):
 
     @music.command(name="search", description="Search for a song and pick from results")
     async def search(self, ctx, *, query: str):
-        if not shutil.which("ffmpeg"): return await ctx.send("❌ No FFmpeg.", ephemeral=True)
+        if not shutil.which("ffmpeg"): return await self.send_notice(ctx, "❌ No FFmpeg.")
         if not ctx.author.voice: return await ctx.send("❌ Join a voice channel!")
         
         await ctx.defer()

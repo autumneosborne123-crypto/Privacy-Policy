@@ -174,10 +174,10 @@ class TestAdvancedEdgeCases(unittest.IsolatedAsyncioTestCase):
     async def test_music_volume_boundaries(self):
         # 0 <= level <= 100 check in Music.py
         await self.music_cog.volume.callback(self.music_cog, self.ctx, 150)
-        self.ctx.send.assert_called_with("❌ Level must be 0-100.", ephemeral=True)
+        self.ctx.send.assert_called_with("❌ Level must be 0-100.")
         
         await self.music_cog.volume.callback(self.music_cog, self.ctx, -10)
-        self.ctx.send.assert_called_with("❌ Level must be 0-100.", ephemeral=True)
+        self.ctx.send.assert_called_with("❌ Level must be 0-100.")
 
     async def test_music_skip_empty_queue(self):
         self.music_cog.queues[self.guild.id] = []

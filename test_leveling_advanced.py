@@ -3,6 +3,7 @@ import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
 import discord
 import os
+import sqlite3
 import time
 from cogs.leveling import Leveling
 from utils.database import Database
@@ -52,6 +53,23 @@ class TestLevelingAdvanced(unittest.IsolatedAsyncioTestCase):
         data = await self.db.get_user_data(member.id)
         # Should be 50 XP due to 2x boost
         self.assertEqual(data["xp"], 50)
+
+    async def test_write_waits_for_transient_sqlite_lock(self):
+        lock_conn = sqlite3.connect(self.db_file, timeout=30)
+        lock_conn.execute("BEGIN IMMEDIATE")
+
+        write_task = asyncio.create_task(
+            self.db.update_user_data(987654, 25, 1, time.time(), 1, 0)
+        )
+        await asyncio.sleep(0.2)
+        self.assertFalse(write_task.done())
+
+        lock_conn.commit()
+        lock_conn.close()
+        await write_task
+
+        data = await self.db.get_user_data(987654)
+        self.assertEqual(data["xp"], 25)
 
     async def test_voice_xp_task_logic(self):
         # Mock guilds and voice channels

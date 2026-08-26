@@ -41,16 +41,18 @@ class System(commands.Cog):
         """Sync slash commands. Use 'guild' as argument to sync to current guild."""
         try:
             if guild_id == "guild":
-                self.bot.tree.copy_global_to(guild=ctx.guild)
+                # Remove legacy guild-scoped copies. Commands are registered globally
+                # by startup; copying them here makes Discord show duplicates.
+                self.bot.tree.clear_commands(guild=ctx.guild)
                 fmt = await self.bot.tree.sync(guild=ctx.guild)
-                await ctx.send(f"✅ Synced {len(fmt)} commands to current guild.")
+                await ctx.send(f"✅ Removed legacy guild command copies ({len(fmt)} remaining). Global commands will remain available.")
             elif guild_id:
                 guild = self.bot.get_guild(int(guild_id))
                 if not guild:
                     return await ctx.send("❌ Guild not found.")
-                self.bot.tree.copy_global_to(guild=guild)
+                self.bot.tree.clear_commands(guild=guild)
                 fmt = await self.bot.tree.sync(guild=guild)
-                await ctx.send(f"✅ Synced {len(fmt)} commands to guild {guild.name}.")
+                await ctx.send(f"✅ Removed legacy guild command copies from {guild.name} ({len(fmt)} remaining). Global commands will remain available.")
             else:
                 fmt = await self.bot.tree.sync()
                 await ctx.send(f"✅ Synced {len(fmt)} global commands.")

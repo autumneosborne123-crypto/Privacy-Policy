@@ -279,7 +279,11 @@ class Leveling(commands.Cog):
 
     @voice_xp_task.before_loop
     async def before_voice_xp_task(self):
-        await self.bot.wait_until_ready()
+        try:
+            await self.bot.wait_until_ready()
+        except RuntimeError as error:
+            if "not been properly initialised" not in str(error):
+                raise
 
     @commands.Cog.listener()
     async def on_message(self, message):

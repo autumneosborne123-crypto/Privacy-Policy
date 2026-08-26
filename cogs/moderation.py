@@ -159,24 +159,7 @@ class Moderation(commands.Cog):
         embed.add_field(name="Reason", value=reason)
         await self._send_dm(member, embed)
 
-    @commands.hybrid_group(name="mod", description="Moderation command group", invoke_without_command=True)
-    @is_staff()
-    async def mod_group(self, ctx):
-        """Main command for moderation. Use .mod <command> or just .mod for help."""
-        await ctx.defer()
-        if ctx.invoked_subcommand is None:
-            embed = discord.Embed(title="⚖️ Moderation System", description="Use `.mod <command>` to execute actions.", color=0x2b2d31)
-            
-            senior_cmds = ["ban", "unban", "removewarn", "clearwarns"]
-            staff_cmds = ["timeout", "mute", "unmute", "kick", "warn", "warns", "clear", "muted", "logs"]
-            
-            embed.add_field(name="Staff Commands", value=", ".join([f"`{c}`" for c in staff_cmds]), inline=False)
-            embed.add_field(name="Senior Staff Commands", value=", ".join([f"`{c}`" for c in senior_cmds]), inline=False)
-            
-            embed.set_footer(text=f"Total: {len(senior_cmds) + len(staff_cmds)} moderation tools")
-            await ctx.send(embed=embed)
-
-    @mod_group.command(name="timeout", description="Timeout a member")
+    @commands.hybrid_command(name="timeout", description="Timeout a member")
     @is_staff()
     @app_commands.describe(member="The member to timeout", minutes="Duration (e.g. 1d, 3d, 7d)", reason="Reason for the timeout")
     @app_commands.choices(minutes=[
@@ -188,7 +171,7 @@ class Moderation(commands.Cog):
         await ctx.defer()
         await self._do_timeout(ctx, member, minutes, reason)
 
-    @mod_group.command(name="mute", description="Mute a member (uses role and/or timeout)", aliases=["m"])
+    @commands.hybrid_command(name="mute", description="Mute a member")
     @is_staff()
     @app_commands.describe(member="The member to mute", minutes="Duration (e.g. 1d, 3d, 7d)", reason="Reason for the mute")
     @app_commands.choices(minutes=[
@@ -211,7 +194,7 @@ class Moderation(commands.Cog):
         
         await self._do_mute(ctx, member, minutes, reason)
 
-    @mod_group.command(name="unmute", description="Unmute a member (removes role and timeout)", aliases=["um"])
+    @commands.hybrid_command(name="unmute", description="Unmute a member")
     @is_staff()
     async def unmute(self, ctx, member: discord.Member, *, reason: str = "Unmuted by moderator"):
         await ctx.defer()
@@ -249,7 +232,7 @@ class Moderation(commands.Cog):
         except Exception as e:
             await ctx.send(f"❌ Failed to unmute member: {e}")
 
-    @mod_group.command(name="ban", description="Ban a user")
+    @commands.hybrid_command(name="ban", description="Ban a member")
     @is_senior_staff()
     @commands.bot_has_permissions(ban_members=True)
     async def ban(self, ctx, user: typing.Union[discord.Member, discord.User], *, reason: str = "No reason provided"):
@@ -268,7 +251,7 @@ class Moderation(commands.Cog):
         except Exception as e:
             await ctx.send(f"❌ Failed to ban member: {e}")
 
-    @mod_group.command(name="kick", description="Kick a member")
+    @commands.hybrid_command(name="kick", description="Kick a member")
     @is_staff()
     @commands.bot_has_permissions(kick_members=True)
     async def kick(self, ctx, member: discord.Member, *, reason: str = "No reason provided"):
@@ -287,7 +270,7 @@ class Moderation(commands.Cog):
         except Exception as e:
             await ctx.send(f"❌ Failed to kick member: {e}")
 
-    @mod_group.command(name="unban", description="Unban a user")
+    @commands.hybrid_command(name="unban", description="Unban a user")
     @is_senior_staff()
     @commands.bot_has_permissions(ban_members=True)
     async def unban(self, ctx, user: discord.User, *, reason: str = "No reason provided"):
@@ -310,7 +293,7 @@ class Moderation(commands.Cog):
         except Exception as e:
             await ctx.send(f"❌ Failed to unban member: {e}")
 
-    @mod_group.command(name="warn", description="Warn a member")
+    @commands.hybrid_command(name="warn", description="Warn a member")
     @is_staff()
     async def warn(self, ctx, member: discord.Member, *, reason: str = "No reason provided"):
         await ctx.defer()
@@ -329,7 +312,7 @@ class Moderation(commands.Cog):
         except Exception as e:
             await ctx.send(f"❌ Failed to warn member: {e}")
 
-    @mod_group.command(name="warns", description="Check a user's warnings", aliases=["warnings"])
+    @commands.command(name="_warnings", hidden=True)
     @is_staff()
     async def warns(self, ctx, member: typing.Union[discord.Member, discord.User]):
         await ctx.defer()
@@ -351,7 +334,7 @@ class Moderation(commands.Cog):
         except Exception as e:
             await ctx.send(f"❌ Failed to fetch warnings: {e}")
 
-    @mod_group.command(name="removewarn", description="Remove a specific warning", aliases=["delwarn"])
+    @commands.command(name="_removewarn", hidden=True)
     @is_senior_staff()
     async def removewarn(self, ctx, warn_id: int):
         await ctx.defer()
@@ -372,7 +355,7 @@ class Moderation(commands.Cog):
         except Exception as e:
             await ctx.send(f"❌ Failed to remove warning: {e}")
 
-    @mod_group.command(name="clearwarns", description="Clear all warnings for a user", aliases=["delwarns"])
+    @commands.hybrid_command(name="clearwarns", description="Clear all warnings for a member")
     @is_senior_staff()
     async def clearwarns(self, ctx, member: typing.Union[discord.Member, discord.User]):
         await ctx.defer()
@@ -387,7 +370,7 @@ class Moderation(commands.Cog):
         except Exception as e:
             await ctx.send(f"❌ Failed to clear warnings: {e}")
 
-    @mod_group.command(name="clear", description="Clear messages")
+    @commands.hybrid_command(name="clear", description="Delete messages")
     @is_staff()
     async def clear(self, ctx, amount: int = 5):
         await ctx.defer()
@@ -396,7 +379,7 @@ class Moderation(commands.Cog):
         await self.bot.log_action(ctx.guild, "Messages Cleared", f"{amount} messages were cleared in {ctx.channel.mention}.", color=0x00ffff, moderator=ctx.author)
 
 
-    @mod_group.command(name="muted", description="List all muted/timed-out members")
+    @commands.hybrid_command(name="muted", description="List muted members")
     @is_staff()
     async def muted(self, ctx):
         await ctx.defer()
@@ -420,7 +403,7 @@ class Moderation(commands.Cog):
         embed = discord.Embed(title="🔇 Muted Members", description="\n".join(muted_members), color=0xffa500)
         await ctx.send(embed=embed)
 
-    @mod_group.command(name="logs", description="View recent moderation logs")
+    @commands.hybrid_command(name="logs", description="View moderation audit logs")
     @is_staff()
     async def logs(self, ctx, user: discord.User = None, limit: int = 10):
         await ctx.defer()
@@ -450,72 +433,17 @@ class Moderation(commands.Cog):
         except Exception as e:
             await ctx.send(f"❌ Failed to fetch logs: {e}")
 
-    @commands.hybrid_command(name="mute", description="Mute a member (top-level shortcut)")
+
+    @commands.command(name="warnings", extras={"prefix_only": True})
     @is_staff()
-    @app_commands.describe(member="The member to mute", minutes="Duration (e.g. 1d, 3d, 7d)", reason="Reason for the mute")
-    @app_commands.choices(minutes=[
-        app_commands.Choice(name="1d", value="1d"),
-        app_commands.Choice(name="3d", value="3d"),
-        app_commands.Choice(name="7d", value="7d")
-    ])
-    async def top_mute(self, ctx, member: discord.Member, minutes: str = None, *, reason: str = "No reason provided"):
-        """Super easy shortcut to mute a member."""
-        await ctx.defer()
-        await self.mute.callback(self, ctx, member, minutes, reason=reason)
+    async def top_warnings(self, ctx, member: typing.Union[discord.Member, discord.User]):
+        """Show a user's warnings using the configured command prefix."""
+        await self.warns.callback(self, ctx, member)
 
-    @commands.hybrid_command(name="timeout", description="Timeout a member (top-level shortcut)")
-    @is_staff()
-    @app_commands.describe(member="The member to timeout", minutes="Duration (e.g. 1d, 3d, 7d)", reason="Reason for the timeout")
-    @app_commands.choices(minutes=[
-        app_commands.Choice(name="1d", value="1d"),
-        app_commands.Choice(name="3d", value="3d"),
-        app_commands.Choice(name="7d", value="7d")
-    ])
-    async def top_timeout(self, ctx, member: discord.Member, minutes: str, *, reason: str = "No reason provided"):
-        """Super easy shortcut to timeout a member."""
-        await ctx.defer()
-        await self.timeout.callback(self, ctx, member, minutes, reason=reason)
-
-    @commands.hybrid_command(name="unmute", description="Unmute a member (top-level shortcut)")
-    @is_staff()
-    async def top_unmute(self, ctx, member: discord.Member, *, reason: str = "Unmuted by moderator"):
-        """Super easy shortcut to unmute a member."""
-        await ctx.defer()
-        await self.unmute.callback(self, ctx, member, reason=reason)
-
-    @commands.hybrid_command(name="ban", description="Ban a member (top-level shortcut)")
-    @is_senior_staff()
-    async def top_ban(self, ctx, user: typing.Union[discord.Member, discord.User], *, reason: str = "No reason provided"):
-        """Super easy shortcut to ban a member."""
-        await ctx.defer()
-        await self.ban.callback(self, ctx, user, reason=reason)
-
-    @commands.hybrid_command(name="kick", description="Kick a member (top-level shortcut)")
-    @is_staff()
-    async def top_kick(self, ctx, member: discord.Member, *, reason: str = "No reason provided"):
-        """Super easy shortcut to kick a member."""
-        await ctx.defer()
-        await self.kick.callback(self, ctx, member, reason=reason)
-
-    @commands.hybrid_command(name="unban", description="Unban a member (top-level shortcut)")
-    @is_senior_staff()
-    async def top_unban(self, ctx, user: discord.User, *, reason: str = "No reason provided"):
-        """Super easy shortcut to unban a member."""
-        await ctx.defer()
-        await self.unban.callback(self, ctx, user, reason=reason)
-
-    @commands.hybrid_command(name="warn", description="Warn a member (top-level shortcut)")
-    @is_staff()
-    async def top_warn(self, ctx, member: discord.Member, *, reason: str = "No reason provided"):
-        """Super easy shortcut to warn a member."""
-        await ctx.defer()
-        await self.warn.callback(self, ctx, member, reason=reason)
-
-    @commands.hybrid_command(name="delwarn", description="Delete a warning (top-level shortcut)", aliases=["removewarn", "unwarn"])
+    @commands.command(name="delwarn", aliases=["removewarn", "unwarn"], extras={"prefix_only": True})
     @is_senior_staff()
     async def top_delwarn(self, ctx, warn_id: int):
-        """Super easy shortcut to delete a warning."""
-        await ctx.defer()
+        """Delete a warning using the configured command prefix."""
         await self.removewarn.callback(self, ctx, warn_id)
 
 async def setup(bot):

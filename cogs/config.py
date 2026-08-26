@@ -9,6 +9,21 @@ class ConfigCog(commands.Cog, name="Config"):
     def __init__(self, bot):
         self.bot = bot
 
+    @commands.hybrid_command(name="prefix", description="Change the command prefix for this server")
+    @is_admin()
+    @discord.app_commands.describe(prefix="One of: , . ? !")
+    async def prefix(self, ctx, prefix: str):
+        """Set the server's command prefix."""
+        prefix = prefix.strip()
+        if prefix not in self.bot.SUPPORTED_PREFIXES:
+            return await ctx.send(
+                f"❌ Prefix must be one of: {', '.join(f'`{p}`' for p in self.bot.SUPPORTED_PREFIXES)}.",
+                ephemeral=True,
+            )
+
+        await self.bot.db.set_guild_setting(ctx.guild.id, "command_prefix", prefix)
+        await ctx.send(f"✅ Command prefix changed to `{prefix}`.", ephemeral=True)
+
     @commands.hybrid_group(name="config", description="Bot configuration management", invoke_without_command=True)
     @is_admin()
     async def config_group(self, ctx):
@@ -16,7 +31,7 @@ class ConfigCog(commands.Cog, name="Config"):
         await ctx.defer()
         if ctx.invoked_subcommand is None:
             embed = discord.Embed(title="⚙️ Configuration System", description="Use `.config <command>` to manage server settings.", color=0x2b2d31)
-            cmds = ["settings", "welcome", "goodbye", "leveling", "music", "log", "quotes", "roles", "toggle", "mute_role"]
+            cmds = ["prefix", "settings", "welcome", "goodbye", "leveling", "music", "log", "quotes", "roles", "moderation", "toggle", "mute_role"]
             embed.add_field(name="Available Categories", value=", ".join([f"`{c}`" for c in cmds]), inline=False)
             await ctx.send(embed=embed)
 
@@ -174,6 +189,8 @@ class ConfigCog(commands.Cog, name="Config"):
         auto_role_id = settings.get('auto_role_id')
         auto_role = ctx.guild.get_role(int(auto_role_id)) if auto_role_id else None
 
+        default_prefix = getattr(self.bot, "DEFAULT_PREFIX", ".")
+        embed.add_field(name="⌨️ Commands", value=f"**Prefix:** `{settings.get('command_prefix') or default_prefix}`", inline=True)
         embed.add_field(name="🌟 Quotes", value=f"**Channel:** {q_chan.mention if q_chan else 'None'}", inline=True)
         embed.add_field(name="🎵 Music", value=f"**Channel:** {m_chan.mention if m_chan else 'None'}", inline=True)
         embed.add_field(name="📜 Audit Logs", value=log_info, inline=True)
@@ -232,6 +249,12 @@ class ConfigCog(commands.Cog, name="Config"):
         await self.bot.db.set_guild_setting(ctx.guild.id, "roles_channel_id", str(channel.id) if channel else None)
         status = f"restricted to {channel.mention}" if channel else "allowed in any channel"
         await ctx.send(f"✅ Role commands are now {status}!", ephemeral=True)
+
+    @config_group.command(name="moderation", description="Enable or disable moderation commands for this server")
+    @is_admin()
+    async def moderation_config(self, ctx, enabled: bool):
+        await ctx.defer(ephemeral=True)
+        await self._do_toggle(ctx, module="Moderation", enabled=enabled)
 
     @config_group.command(name="toggle", description="Enable or disable a module or log category")
     @is_admin()

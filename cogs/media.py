@@ -51,7 +51,11 @@ class Media(commands.Cog):
 
     @cleanup_task.before_loop
     async def before_cleanup_task(self):
-        await self.bot.wait_until_ready()
+        try:
+            await self.bot.wait_until_ready()
+        except RuntimeError as error:
+            if "not been properly initialised" not in str(error):
+                raise
 
     @tasks.loop(minutes=2)
     async def media_loop(self):
@@ -105,7 +109,11 @@ class Media(commands.Cog):
 
     @media_loop.before_loop
     async def before_media_loop(self):
-        await self.bot.wait_until_ready()
+        try:
+            await self.bot.wait_until_ready()
+        except RuntimeError as error:
+            if "not been properly initialised" not in str(error):
+                raise
 
     def is_sfw_url(self, url: str) -> bool:
         url_lower = url.lower()
@@ -134,8 +142,7 @@ class Media(commands.Cog):
         # Shuffle to pick a random one that isn't sent
         random.shuffle(urls)
         for url in urls:
-            if not await self.bot.db.is_media_sent(url):
-                await self.bot.db.mark_media_sent(url)
+            if await self.bot.db.claim_media_url(url):
                 return url
         
         # If all are sent, just return the first one (fallback)

@@ -9,6 +9,7 @@ import shutil
 os.environ['DISCORD_TOKEN'] = 'dummy_token'
 
 from cogs.music import Music
+from cogs.music import YTDLSource
 
 class TestMusicCommands(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
@@ -26,6 +27,14 @@ class TestMusicCommands(unittest.IsolatedAsyncioTestCase):
         mock_ctx.guild.id = 123
         mock_ctx.channel.name = 'music' # Pass is_music_channel check
         return mock_ctx
+
+    @patch('yt_dlp.YoutubeDL')
+    async def test_from_url_rejects_empty_extraction(self, mock_ytdl_class):
+        mock_extract = mock_ytdl_class.return_value.__enter__.return_value.extract_info
+        mock_extract.return_value = None
+
+        with self.assertRaisesRegex(ValueError, "No results found"):
+            await YTDLSource.from_url("ytsearch:missing song", loop=self.bot.loop, stream=True)
 
     @patch('shutil.which', return_value='/usr/bin/ffmpeg')
     async def test_music_play_no_voice(self, mock_which):
@@ -118,6 +127,30 @@ class TestMusicCommands(unittest.IsolatedAsyncioTestCase):
         result = await check(mock_ctx)
         self.assertFalse(result)
         mock_ctx.send.assert_called()
+
+    async def test_prefix_music_channel_failure_is_not_ephemeral(self):
+        mock_ctx = self.mock_context()
+        mock_ctx.interaction = None
+        mock_ctx.channel.name = 'general'
+        mock_ctx.author.voice = None
+
+        check = Music.is_music_channel().predicate
+        result = await check(mock_ctx)
+
+        self.assertFalse(result)
+        mock_ctx.send.assert_called_once_with("❌ Use this in the designated music channel (#music)")
+
+    async def test_pause_and_resume_always_respond_when_idle(self):
+        mock_ctx = self.mock_context()
+        mock_ctx.interaction = None
+        mock_ctx.voice_client = None
+
+        await self.music_cog.pause.callback(self.music_cog, mock_ctx)
+        mock_ctx.send.assert_called_once_with("❌ Nothing is playing.")
+
+        mock_ctx.send.reset_mock()
+        await self.music_cog.resume.callback(self.music_cog, mock_ctx)
+        mock_ctx.send.assert_called_once_with("❌ Nothing is paused.")
 
     async def test_music_volume_command(self):
         mock_ctx = self.mock_context()

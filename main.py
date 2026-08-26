@@ -4,6 +4,10 @@ import logging
 from dotenv import load_dotenv
 import os
 import asyncio
+import socket
+import sys
+import ctypes
+from urllib.parse import urlencode
 from utils.database import Database
 from utils.config import Config
 from static_ffmpeg import add_paths
@@ -12,6 +16,80 @@ load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
 CONFIG_FILE = "config.json"
 DB_FILE = os.getenv('DATABASE_FILE', 'levels.db')
+INSTANCE_PORT = int(os.getenv('FLOWERBOT_INSTANCE_PORT', '49321'))
+_instance_socket = None
+_instance_mutex = None
+
+
+async def send_context_message(ctx, *args, ephemeral=False, **kwargs):
+    """Send an ephemeral response only when the context is an interaction."""
+    if ephemeral and getattr(ctx, "interaction", None) is not None:
+        kwargs["ephemeral"] = True
+    return await ctx.send(*args, **kwargs)
+
+
+def unique_visible_commands(commands_iterable):
+    """Return visible commands once, even if a registry contains stale copies."""
+    unique = []
+    seen = set()
+    for command in commands_iterable:
+        if command.hidden:
+            continue
+        command_key = command.qualified_name.lower()
+        if command_key in seen:
+            continue
+        seen.add(command_key)
+        unique.append(command)
+    return unique
+
+
+def _acquire_instance_mutex(port):
+    """Use a Windows kernel mutex so spawned processes cannot share the bot."""
+    global _instance_mutex
+    if sys.platform != "win32":
+        return True
+
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    mutex_name = f"Local\\FlowerBot-{port}"
+    mutex = kernel32.CreateMutexW(None, True, mutex_name)
+    if not mutex:
+        return False
+    if ctypes.get_last_error() == 183:  # ERROR_ALREADY_EXISTS
+        kernel32.CloseHandle(mutex)
+        return False
+    _instance_mutex = (kernel32, mutex)
+    return True
+
+
+def release_instance_lock():
+    """Release the process-wide bot lock during shutdown and tests."""
+    global _instance_socket, _instance_mutex
+    if _instance_socket is not None:
+        _instance_socket.close()
+        _instance_socket = None
+    if _instance_mutex is not None:
+        kernel32, mutex = _instance_mutex
+        kernel32.ReleaseMutex(mutex)
+        kernel32.CloseHandle(mutex)
+        _instance_mutex = None
+
+
+def acquire_instance_lock(port=INSTANCE_PORT):
+    """Reserve a local port so only one bot process can run at a time."""
+    global _instance_socket
+    if not _acquire_instance_mutex(port):
+        return False
+    instance_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    instance_socket.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+    try:
+        instance_socket.bind(('127.0.0.1', port))
+        instance_socket.listen(1)
+    except OSError:
+        instance_socket.close()
+        release_instance_lock()
+        return False
+    _instance_socket = instance_socket
+    return True
 
 # Logging setup
 logging.basicConfig(
@@ -128,7 +206,7 @@ class HelpSelect(discord.ui.Select):
             else: emoji = "📁"
             
             # Count non-hidden commands
-            visible_cmds = [c for c in cog.get_commands() if not c.hidden]
+            visible_cmds = unique_visible_commands(cog.get_commands())
             if visible_cmds:
                 options.append(discord.SelectOption(label=cog_name, emoji=emoji, description=f"{len(visible_cmds)} commands"))
         
@@ -149,13 +227,12 @@ class HelpSelect(discord.ui.Select):
         embed.description = cog.description or f"Here are the commands for the **{self.values[0]}** category:"
         
         cmds = []
-        for cmd in sorted(cog.get_commands(), key=lambda x: x.name):
-            if not cmd.hidden:
-                if isinstance(cmd, commands.Group):
-                    sub_cmds = ", ".join([f"`{c.name}`" for c in cmd.commands])
-                    cmds.append(f"**{self.prefix}{cmd.name}** - {cmd.short_doc or 'No description'}\n└ *Subcommands: {sub_cmds}*")
-                else:
-                    cmds.append(f"**{self.prefix}{cmd.name}** - {cmd.short_doc or 'No description'}")
+        for cmd in sorted(unique_visible_commands(cog.get_commands()), key=lambda x: x.name):
+            if isinstance(cmd, commands.Group):
+                sub_cmds = ", ".join([f"`{c.name}`" for c in cmd.commands])
+                cmds.append(f"**{self.prefix}{cmd.name}** - {cmd.short_doc or 'No description'}\n└ *Subcommands: {sub_cmds}*")
+            else:
+                cmds.append(f"**{self.prefix}{cmd.name}** - {cmd.short_doc or 'No description'}")
         
         if not cmds:
             embed.description = "No visible commands in this category."
@@ -185,20 +262,47 @@ class HelpView(discord.ui.View):
         embed.set_thumbnail(url=self.bot.user.display_avatar.url if self.bot.user.display_avatar else None)
         
         # Show some stats
-        total_commands = len([c for c in self.bot.commands if not c.hidden])
+        total_commands = len(unique_visible_commands(self.bot.commands))
         embed.add_field(name="Stats", value=f"**Total Commands:** {total_commands}\n**Categories:** {len(self.bot.cogs)}", inline=True)
         embed.add_field(name="Prefix", value=f"Current prefix: `{self.prefix}`", inline=True)
         
         return embed
 
+class WelcomeView(discord.ui.View):
+    def __init__(self, bot):
+        super().__init__(timeout=None)
+        self.bot = bot
+
+    @discord.ui.button(label="Toggle Moderation", style=discord.ButtonStyle.primary, custom_id="welcome:toggle_mod")
+    async def toggle_mod(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not interaction.user.guild_permissions.administrator:
+            return await interaction.response.send_message("❌ You need Administrator permissions to use this button.", ephemeral=True)
+        
+        settings = await self.bot.db.get_all_guild_settings(interaction.guild.id)
+        disabled_raw = settings.get('disabled_cogs') or ""
+        disabled = [d.strip().lower() for d in disabled_raw.split(',') if d.strip()]
+        
+        if "moderation" in disabled:
+            disabled.remove("moderation")
+            status = "Enabled"
+        else:
+            disabled.append("moderation")
+            status = "Disabled"
+            
+        await self.bot.db.set_guild_setting(interaction.guild.id, "disabled_cogs", ",".join(disabled) if disabled else None)
+        await interaction.response.send_message(f"✅ Moderation module has been **{status}** for this server.", ephemeral=True)
+
 class FlowerBot(commands.Bot):
+    SUPPORTED_PREFIXES = (",", ".", "?", "!")
+    DEFAULT_PREFIX = "."
+
     def __init__(self):
         intents = discord.Intents.default()
         intents.message_content = True
         intents.members = True
         intents.voice_states = True
         super().__init__(
-            command_prefix=commands.when_mentioned_or('.', '!', 's?'), 
+            command_prefix=self.get_prefix,
             intents=intents, 
             help_command=None,
             strip_after_prefix=True
@@ -208,6 +312,60 @@ class FlowerBot(commands.Bot):
         self.config = Config(CONFIG_FILE)
         self.whitelisted_bots = [422087909634736160, 1373666241033535558] # Top.gg bot & PFP Bot
         self.add_check(self.global_cog_check)
+        self.tree.interaction_check = self.global_interaction_check
+
+    async def get_prefix(self, message):
+        """Return the configured prefix for a guild, or the default prefix."""
+        if not message.guild:
+            return commands.when_mentioned_or(self.DEFAULT_PREFIX)(self, message)
+
+        prefix = await self.db.get_guild_setting(message.guild.id, "command_prefix")
+        if prefix not in self.SUPPORTED_PREFIXES:
+            prefix = self.DEFAULT_PREFIX
+        return commands.when_mentioned_or(prefix)(self, message)
+
+    def get_admin_invite_url(self):
+        """Return an OAuth2 URL that installs the bot with Administrator access."""
+        application_id = self.application_id or (self.user.id if self.user else None)
+        if not application_id:
+            return None
+
+        return "https://discord.com/oauth2/authorize?" + urlencode({
+            "client_id": application_id,
+            "permissions": 8,
+            "scope": "bot applications.commands",
+        })
+
+    async def global_interaction_check(self, interaction: discord.Interaction) -> bool:
+        if not interaction.guild: return True
+        if not interaction.command: return True
+        
+        # Find the cog
+        cog = None
+        if hasattr(interaction.command, 'binding'):
+            cog = interaction.command.binding
+        
+        if not cog or not isinstance(cog, commands.Cog): return True
+        
+        # Core cogs should always be accessible
+        core_cogs = ["System", "Config", "Tools", "Logging", "Security"]
+        if cog.qualified_name in core_cogs: return True
+        
+        settings = await self.db.get_all_guild_settings(interaction.guild.id)
+        disabled_raw = settings.get('disabled_cogs')
+        if not disabled_raw: return True
+        
+        disabled = [d.strip().lower() for d in disabled_raw.split(',') if d.strip()]
+        cog_name = cog.qualified_name.lower()
+        cog_module = cog.__module__.lower()
+        
+        if cog_name in disabled or cog_module in disabled or cog_module.split('.')[-1] in disabled:
+            try:
+                if not interaction.response.is_done():
+                    await interaction.response.send_message(f"❌ The `{cog.qualified_name}` module is disabled in this server.", ephemeral=True)
+            except: pass
+            return False
+        return True
 
     async def global_cog_check(self, ctx):
         if not ctx.guild: return True
@@ -227,7 +385,7 @@ class FlowerBot(commands.Bot):
         
         # Check by qualified name or module name (e.g., 'Adventure' or 'cogs.adventure')
         if cog_name in disabled or cog_module in disabled or cog_module.split('.')[-1] in disabled:
-            try: await ctx.send(f"❌ The `{ctx.cog.qualified_name}` module is disabled in this server.", ephemeral=True)
+            try: await send_context_message(ctx, f"❌ The `{ctx.cog.qualified_name}` module is disabled in this server.", ephemeral=True)
             except: pass
             return False
         return True
@@ -238,6 +396,7 @@ class FlowerBot(commands.Bot):
 
     async def setup_hook(self):
         await self.db.init()
+        self.add_view(WelcomeView(self))
         
         # Load Cogs
         cogs = ['cogs.leveling', 'cogs.music', 'cogs.security', 'cogs.fun', 'cogs.moderation', 'cogs.config', 'cogs.system', 'cogs.games', 'cogs.media', 'cogs.economy', 'cogs.adventure', 'cogs.achievements', 'cogs.logging', 'cogs.roles', 'cogs.tools', 'cogs.premium', 'cogs.afk']
@@ -248,10 +407,14 @@ class FlowerBot(commands.Bot):
             except Exception as e:
                 logging.error(f"Failed to load extension {cog}: {e}")
 
-        # Sync slash commands
+        # Sync slash commands. A transient API failure should not stop the gateway
+        # client from starting; Discord will retry command sync on the next restart.
         self.tree.on_error = self.on_app_command_error
-        await self.tree.sync()
-        logging.info(f"Synced slash commands for {self.user}")
+        try:
+            synced = await self.tree.sync()
+            logging.info(f"Synced {len(synced)} slash commands for {self.user}")
+        except Exception as e:
+            logging.error(f"Slash command sync failed; continuing startup: {e}")
 
     async def on_app_command_error(self, interaction: discord.Interaction, error: discord.app_commands.AppCommandError):
         # Unwrap TransformerError or other common wrappers
@@ -259,18 +422,22 @@ class FlowerBot(commands.Bot):
             error = error.original
             
         if isinstance(error, discord.app_commands.CheckFailure):
-            try: await interaction.response.send_message("❌ Access Denied: You do not have permission to use this command or it is disabled.", ephemeral=True)
-            except: 
-                try: await interaction.followup.send("❌ Access Denied: You do not have permission to use this command or it is disabled.", ephemeral=True)
-                except: pass
+            try:
+                if not interaction.response.is_done():
+                    await interaction.response.send_message("❌ Access Denied: You do not have permission to use this command or it is disabled.", ephemeral=True)
+                else:
+                    await interaction.followup.send("❌ Access Denied: You do not have permission to use this command or it is disabled.", ephemeral=True)
+            except: pass
         elif isinstance(error, discord.app_commands.CommandNotFound):
             pass
         else:
-            logging.error(f"Slash Command Error: {error}")
-            try: await interaction.response.send_message(f"❌ An error occurred: `{error}`", ephemeral=True)
-            except:
-                try: await interaction.followup.send(f"❌ An error occurred: `{error}`", ephemeral=True)
-                except: pass
+            logging.error(f"Slash Command Error: {error}", exc_info=True)
+            try:
+                if not interaction.response.is_done():
+                    await interaction.response.send_message(f"❌ An error occurred: `{error}`", ephemeral=True)
+                else:
+                    await interaction.followup.send(f"❌ An error occurred: `{error}`", ephemeral=True)
+            except: pass
 
     async def update_balance(self, user_id, amount):
         await self.db.update_balance(user_id, amount)
@@ -365,6 +532,9 @@ class FlowerBot(commands.Bot):
             self.start_time = discord.utils.utcnow()
         await self.change_presence(activity=discord.Game(name=".help | Moderating & Playing"))
         logging.info(f'Logged in as {self.user} (ID: {self.user.id})')
+        invite_url = self.get_admin_invite_url()
+        if invite_url:
+            logging.info("Administrator invite URL (reinvite existing servers if needed): %s", invite_url)
 
     async def on_guild_join(self, guild):
         logging.info(f"Joined new guild: {guild.name} (ID: {guild.id})")
@@ -375,17 +545,6 @@ class FlowerBot(commands.Bot):
         await self.db.set_guild_setting(guild.id, "anti_raid_enabled", 1)
         await self.db.set_guild_setting(guild.id, "anti_nuke_enabled", 1)
         
-        # Sync slash commands for this guild specifically for instant availability
-        if self.application_id:
-            try:
-                self.tree.copy_global_to(guild=guild)
-                await self.tree.sync(guild=guild)
-                logging.info(f"Successfully synced slash commands for guild {guild.id}")
-            except Exception as e:
-                logging.error(f"Failed to sync slash commands for guild {guild.id}: {e}")
-        else:
-            logging.warning(f"Skipping instant sync for guild {guild.id} (Application ID not yet set)")
-
         # Send welcome message to system channel or owner
         embed = discord.Embed(title="🌸 Thank you for inviting flowerbot.gg!", color=0x2b2d31)
         embed.description = (
@@ -407,12 +566,12 @@ class FlowerBot(commands.Bot):
             target = next((c for c in guild.text_channels if c.permissions_for(guild.me).send_messages), None)
             
         if target:
-            try: await target.send(embed=embed)
+            try: await target.send(embed=embed, view=WelcomeView(self))
             except: pass
             
         # Also notify owner if possible
         try:
-            await guild.owner.send(embed=embed)
+            await guild.owner.send(embed=embed, view=WelcomeView(self))
         except:
             pass
 
@@ -422,7 +581,7 @@ class FlowerBot(commands.Bot):
         if command_name:
             cmd = self.get_command(command_name.lower())
             if not cmd:
-                return await ctx.send(f"❌ Command `{command_name}` not found.", ephemeral=True)
+                return await send_context_message(ctx, f"❌ Command `{command_name}` not found.", ephemeral=True)
             
             embed = discord.Embed(title=f"📖 Help: {prefix}{cmd.name}", color=0x2b2d31)
             embed.description = cmd.description or "No description available."
@@ -437,11 +596,11 @@ class FlowerBot(commands.Bot):
             if cmd.aliases:
                 embed.add_field(name="Aliases", value=", ".join([f"`{prefix}{a}`" for a in cmd.aliases]), inline=False)
             
-            return await ctx.send(embed=embed, ephemeral=True)
+            return await send_context_message(ctx, embed=embed, ephemeral=True)
 
         view = HelpView(self, prefix, ctx)
         embed = view.create_home_embed()
-        await ctx.send(embed=embed, view=view, ephemeral=True)
+        await send_context_message(ctx, embed=embed, view=view, ephemeral=True)
 
     async def on_command_error(self, ctx, error):
         # Unwrap HybridCommandError
@@ -453,37 +612,41 @@ class FlowerBot(commands.Bot):
         if isinstance(error, commands.MissingPermissions):
             embed.title = "❌ Missing Permissions"
             embed.description = f"You need the following permissions to use this command: {', '.join(error.missing_permissions)}"
-            await ctx.send(embed=embed, ephemeral=True)
+            await send_context_message(ctx, embed=embed, ephemeral=True)
         elif isinstance(error, commands.MissingRequiredArgument):
             embed.title = "❌ Missing Argument"
             embed.description = f"You are missing a required argument: `{error.param.name}`\n\n**Usage:** `.help {ctx.command.name}`"
-            await ctx.send(embed=embed, ephemeral=True)
+            await send_context_message(ctx, embed=embed, ephemeral=True)
         elif isinstance(error, commands.CommandOnCooldown):
             embed.title = "⏳ Cooldown"
             embed.description = f"This command is on cooldown. Please try again in **{error.retry_after:.1f}s**."
-            await ctx.send(embed=embed, ephemeral=True)
+            await send_context_message(ctx, embed=embed, ephemeral=True)
         elif isinstance(error, commands.CheckFailure):
             embed.title = "❌ Access Denied"
             embed.description = "You do not have permission to use this command or it is disabled in this server."
-            await ctx.send(embed=embed, ephemeral=True)
+            await send_context_message(ctx, embed=embed, ephemeral=True)
         elif isinstance(error, commands.BotMissingPermissions):
             embed.title = "❌ Bot Missing Permissions"
             embed.description = f"I need the following permissions to perform this action: {', '.join(error.missing_permissions)}"
-            await ctx.send(embed=embed, ephemeral=True)
+            await send_context_message(ctx, embed=embed, ephemeral=True)
         elif isinstance(error, commands.BadArgument):
             embed.title = "❌ Invalid Argument"
             embed.description = f"Please check your input and try again. Error: `{error}`"
-            await ctx.send(embed=embed, ephemeral=True)
+            await send_context_message(ctx, embed=embed, ephemeral=True)
         elif isinstance(error, commands.CommandNotFound):
             pass
         else:
-            logging.error(f"Unhandled error: {error}")
+            logging.error(f"Unhandled error: {error}", exc_info=True)
             embed.title = "❌ Unhandled Error"
             embed.description = f"An unexpected error occurred: `{error}`"
-            try: await ctx.send(embed=embed, ephemeral=True)
+            try: await send_context_message(ctx, embed=embed, ephemeral=True)
             except: pass
 
 def run_bot():
+    if not acquire_instance_lock():
+        logging.error("Another Flowerbot process is already running; refusing duplicate startup.")
+        return 2
+
     bot = FlowerBot()
     
     # Add Discord Logging Handler
@@ -492,7 +655,10 @@ def run_bot():
     logging.getLogger().addHandler(discord_handler)
     
     add_paths()
-    bot.run(TOKEN)
+    try:
+        bot.run(TOKEN)
+    finally:
+        release_instance_lock()
 
 if __name__ == "__main__":
-    run_bot()
+    sys.exit(run_bot() or 0)
